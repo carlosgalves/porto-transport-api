@@ -1,5 +1,5 @@
 from fastapi import Request, Query
-from typing import Optional, TypeVar, List, Type
+from typing import Optional, TypeVar, List, Type, Tuple
 from urllib.parse import urlencode
 from datetime import datetime
 from app.api.schemas.pagination import PageInfo, Links, PaginatedResponse
@@ -10,7 +10,7 @@ T = TypeVar('T')
 def get_pagination_params(
     page: int = Query(0, ge=0),
     size: int = Query(100, ge=1, le=100)
-) -> tuple[int, int]:
+) -> Tuple[int, int]:
     return page, size
 
 
@@ -32,7 +32,7 @@ def create_pagination_info(
     total: int,
     page: int,
     size: int
-) -> tuple[PageInfo, Links, datetime]:
+) -> Tuple[PageInfo, Links, datetime]:
     total_pages = (total + size - 1) // size if total > 0 else 0
     
     # navigation links

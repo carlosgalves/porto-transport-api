@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from datetime import datetime, time, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -43,7 +43,7 @@ class StopService:
         zone_id: Optional[str] = None,
         page: int = 0,
         size: int = 100
-    ) -> tuple[List[Stop], int]:
+    ) -> Tuple[List[Stop], int]:
 
         query = db.query(StopModel)
         
@@ -66,7 +66,7 @@ class StopService:
         service_id: Optional[str] = None,
         page: int = 0,
         size: int = 100
-    ) -> tuple[List[ScheduledArrival], int]:
+    ) -> Tuple[List[ScheduledArrival], int]:
 
         # Join with trips table to get route_id, direction_id, service_id, trip_number
         query = db.query(ScheduledArrivalModel).join(

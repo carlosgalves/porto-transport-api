@@ -36,7 +36,7 @@ class TripService:
         wheelchair_accessible: Optional[int] = None,
         page: int = 0,
         size: int = 100
-    ) -> tuple[List[Trip], int]:
+    ) -> Tuple[List[Trip], int]:
 
         query = db.query(TripModel)
         

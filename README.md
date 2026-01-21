@@ -51,7 +51,7 @@ The aim of this API is to provide better usability and more data than the source
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.9 or higher
 - pip
 
 ### Setup

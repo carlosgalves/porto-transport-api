@@ -77,7 +77,7 @@ class RouteService:
         service_ids: Optional[List[str]] = None,
         page: int = 0,
         size: int = 100
-    ) -> tuple[List[Route], int]:
+    ) -> Tuple[List[Route], int]:
 
         query = db.query(RouteModel)
         
