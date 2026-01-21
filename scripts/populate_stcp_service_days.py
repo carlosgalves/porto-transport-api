@@ -21,6 +21,9 @@ def load_service_days():
     
     db: Session = SessionLocal()
     try:
+        # Clear old data and commit separately to ensure it's executed
+        db.query(ServiceDay).delete()
+        db.commit()
         
         db_service_days = [
             ServiceDay(
