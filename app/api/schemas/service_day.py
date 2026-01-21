@@ -1,13 +1,13 @@
 import json
 from pydantic import BaseModel, Field, field_validator
-from typing import List
+from typing import List, Optional
 from datetime import date
 
 
 class ServiceDay(BaseModel):
     service_id: str = Field(...)
     service_name: str = Field(...,)
-    service_type: int | None = Field(None)
+    service_type: Optional[int] = Field(None)
     day_map: List[int] = Field(...)
     start_date: date = Field(...)
     end_date: date = Field(...)
