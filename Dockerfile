@@ -51,5 +51,5 @@ RUN mkdir -p data/raw/stcp data/normalized
 # Expose port (Railway will set PORT env var)
 EXPOSE 8000
 
-# Populate database and start the API server
-CMD python scripts/populate_stcp.py && python run.py
+# Start the API server
+CMD python run.py
