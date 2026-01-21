@@ -4,5 +4,6 @@ httpx
 pydantic
 pydantic-settings
 python-dotenv
+psycopg2-binary
 pytest
 pytest-asyncio

@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from pathlib import Path
+import os
 
 _project_root = Path(__file__).parent.parent.parent
 
@@ -19,6 +20,12 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = True
         extra = "ignore"
+    
+    @property
+    def port(self) -> int:
+        """Get port from Railway PORT env var or fall back to API_PORT."""
+        # Railway sets PORT, development uses API_PORT from env file
+        return int(os.getenv("PORT", str(self.API_PORT)))
 
 
 settings = Settings()
