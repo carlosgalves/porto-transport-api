@@ -33,7 +33,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install runtime system dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends postgresql-client && \
+    apt-get install -y --no-install-recommends postgresql-client bash && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the virtual environment from the builder stage
@@ -52,4 +52,7 @@ RUN mkdir -p data/raw/stcp data/normalized
 EXPOSE 8000
 
 # Start the API server
-CMD python run.py
+# Use start.sh which optionally handles GTFS download and database population
+# Set AUTO_POPULATE_DB=true to enable automatic population on startup
+# Set AUTO_DOWNLOAD_GTFS=true to enable automatic GTFS download
+CMD ["/app/start.sh"]
