@@ -17,15 +17,19 @@ def get_stops(
     request: Request,
     zone_id: Optional[str] = Query(None, description="Filter stops by zone_id"),
     page: int = Query(0, ge=0, description="Page number"),
-    size: int = Query(100, ge=1, le=100, description="Page size (1-100)"),
+    size: Optional[int] = Query(None, ge=1, le=100, description="Page size (1-100). If not provided, returns all stops."),
     db: Session = Depends(get_db)
 ):
     """
     Get all stops.
+    If size is not provided, returns all stops without pagination.
     """
     stops, total = StopService.get_stops(db=db, zone_id=zone_id, page=page, size=size)
     
-    return create_paginated_response(request, stops, total, page, size, StopResponse)
+    effective_size = size if size is not None else total
+    effective_page = 0 if size is None else page
+    
+    return create_paginated_response(request, stops, total, effective_page, effective_size, StopResponse)
 
 
 @router.get("/{stop_id}", response_model=SingleResponse[Stop])

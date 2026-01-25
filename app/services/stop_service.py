@@ -42,7 +42,7 @@ class StopService:
         db: Session, 
         zone_id: Optional[str] = None,
         page: int = 0,
-        size: int = 100
+        size: Optional[int] = 100
     ) -> Tuple[List[Stop], int]:
 
         query = db.query(StopModel)
@@ -52,8 +52,12 @@ class StopService:
         
         total = query.count()
         
-        skip = page * size
-        db_stops = query.offset(skip).limit(size).all()
+        # If no size is provided, return all stops without pagination
+        if size is None:
+            db_stops = query.all()
+        else:
+            skip = page * size
+            db_stops = query.offset(skip).limit(size).all()
         
         stops = [StopService._model_to_schema(stop) for stop in db_stops]
         return stops, total
