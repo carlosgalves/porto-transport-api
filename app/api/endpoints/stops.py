@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.dependencies import get_api_key
 from app.api.schemas.stop import Stop, StopResponse
 from app.api.schemas.arrival import ScheduledArrival, ScheduledArrivalResponse, RealtimeArrival, RealtimeArrivalsResponse
 from app.api.schemas.response import SingleResponse
@@ -18,7 +19,8 @@ def get_stops(
     zone_id: Optional[str] = Query(None, description="Filter stops by zone_id"),
     page: int = Query(0, ge=0, description="Page number"),
     size: Optional[int] = Query(None, ge=1, le=100, description="Page size (1-100). If not provided, returns all stops."),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get all stops.
@@ -36,7 +38,8 @@ def get_stops(
 def get_stop_by_id(
     request: Request,
     stop_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get a specific stop by it's ID.
@@ -57,7 +60,8 @@ def get_scheduled_arrivals(
     service_id: Optional[str] = Query(None, description="Filter arrivals by service_id (service day)"),
     page: int = Query(0, ge=0, description="Page number"),
     size: int = Query(100, ge=1, le=100, description="Page size (1-100)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get scheduled arrivals for a specific stop.
@@ -85,7 +89,8 @@ def get_scheduled_arrivals(
 async def get_realtime_arrivals(
     request: Request,
     stop_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get real-time arrivals for a specific stop.

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.dependencies import get_api_key
 from app.api.schemas.trip import Trip, TripResponse, TripStop
 from app.api.schemas.shape import TripShapesResponse
 from app.api.schemas.response import SimpleListResponse, SingleResponse
@@ -21,7 +22,8 @@ def get_trips(
     wheelchair_accessible: Optional[int] = Query(None),
     page: int = Query(0, ge=0),
     size: int = Query(100, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get trips with optional filtering and pagination.
@@ -43,7 +45,8 @@ def get_trips(
 def get_trip_by_id(
     request: Request,
     trip_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get a specific trip by its id.
@@ -60,7 +63,8 @@ def get_trip_by_id(
 def get_trip_shapes(
     request: Request,
     trip_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get all shape points for a specific trip by its id.
@@ -77,7 +81,8 @@ def get_trip_shapes(
 def get_trip_stops(
     request: Request,
     trip_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get all stops for a specific trip by its id.

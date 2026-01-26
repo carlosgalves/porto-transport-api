@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     
     GTFS_DATA_DIR: Path = _project_root / "data" / "raw" / "stcp"
     
+    # set the SECRET_KEY under .env
+    SECRET_KEY: str = "your-secret-key-change-this-in-production"
+    
     class Config:
         env_file = str(_project_root / ".env")
         env_file_encoding = "utf-8"

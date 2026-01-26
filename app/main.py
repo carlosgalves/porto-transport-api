@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextlib import asynccontextmanager
-from app.api.endpoints import stops, service_days, routes, trips, buses
+from app.api.endpoints import stops, service_days, routes, trips, buses, auth
 from app.data_source.gtfs.stcp.models import *
 from app.services.bus_service import run_periodic_bus_updates
 from app.api.utils.error_handler import (
@@ -36,6 +36,7 @@ app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(stops.router, prefix="/api/v1/stcp")
 app.include_router(service_days.router, prefix="/api/v1/stcp")
 app.include_router(routes.router, prefix="/api/v1/stcp")

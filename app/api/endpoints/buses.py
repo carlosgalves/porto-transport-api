@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.dependencies import get_api_key
 from app.api.schemas.bus import Bus, BusResponse
 from app.api.schemas.response import SingleResponse
 from app.api.utils.pagination import create_paginated_response
@@ -18,7 +19,8 @@ def get_buses(
     direction_id: Optional[int] = Query(None, description="Filter buses by direction_id (only works when route_id is provided)"),
     page: int = Query(0, ge=0, description="Page number"),
     size: int = Query(100, ge=1, le=100, description="Page size (1-100)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get all buses.
@@ -38,7 +40,8 @@ def get_buses(
 def get_bus_by_id(
     request: Request,
     vehicle_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get a specific bus by its vehicle_id.

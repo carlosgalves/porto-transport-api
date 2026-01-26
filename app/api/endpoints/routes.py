@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.dependencies import get_api_key
 from app.api.schemas.route import Route, RouteResponse, RouteStop, RouteStopsGroupedResponse, RouteDirectionStops, RouteStopItem
 from app.api.schemas.shape import RouteShape
 from app.api.schemas.response import SingleResponse, ListResponse, SimpleListResponse
@@ -20,7 +21,8 @@ def get_routes(
     service_id: Optional[str] = Query(None, description="Filter routes by comma-separated service IDs."),
     page: int = Query(0, ge=0, description="Page number (0-indexed)"),
     size: int = Query(100, ge=1, le=100, description="Page size (1-100)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get all routes.
@@ -44,7 +46,8 @@ def get_route_by_id(
     request: Request,
     route_id: str,
     service_id: Optional[str] = Query(None, description="Filter directions by comma-separated service IDs"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get a specific route by it's ID.
@@ -66,7 +69,8 @@ def get_route_shapes(
     request: Request,
     route_id: str,
     direction_id: Optional[int] = Query(None, description="Filter shapes by direction_id"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get all shapes/stop points for a specific route.
@@ -89,7 +93,8 @@ def get_route_stops(
     request: Request,
     route_id: str,
     direction_id: Optional[int] = Query(None, description="Filter stops by direction_id"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get all stops for a specific route, grouped by direction_id.
