@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     
     GTFS_DATA_DIR: Path = _project_root / "data" / "raw" / "stcp"
     
+    # CORS configuration
+    CORS_ORIGINS: str = "*"
+    
     class Config:
         env_file = str(_project_root / ".env")
         env_file_encoding = "utf-8"
@@ -26,6 +29,12 @@ class Settings(BaseSettings):
         """Get port from Railway PORT env var or fall back to API_PORT."""
         # Railway sets PORT, development uses API_PORT from env file
         return int(os.getenv("PORT", str(self.API_PORT)))
+    
+    @property
+    def cors_origins(self) -> list[str]:
+        if self.CORS_ORIGINS == "*":
+            return ["*"]
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
 
 settings = Settings()
