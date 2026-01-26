@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     # set the SECRET_KEY under .env
     SECRET_KEY: str = "your-secret-key-change-this-in-production"
     
+    CORS_ORIGINS: str = "*"
+    
     class Config:
         env_file = str(_project_root / ".env")
         env_file_encoding = "utf-8"

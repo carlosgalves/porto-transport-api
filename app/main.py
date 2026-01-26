@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextlib import asynccontextmanager
 from app.api.endpoints import stops, service_days, routes, trips, buses, auth
@@ -10,6 +11,7 @@ from app.api.utils.error_handler import (
     validation_exception_handler,
     general_exception_handler
 )
+from app.core.config import settings
 
 
 @asynccontextmanager
@@ -30,6 +32,16 @@ app = FastAPI(
     description="Unofficial API for public transport data for the city of Porto",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+cors_origins = ["*"] if settings.CORS_ORIGINS == "*" else [origin.strip() for origin in settings.CORS_ORIGINS.split(",")]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
