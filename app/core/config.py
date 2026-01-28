@@ -15,7 +15,9 @@ class Settings(BaseSettings):
     
     GTFS_DATA_DIR: Path = _project_root / "data" / "raw" / "stcp"
     
-    # CORS configuration
+    # set the SECRET_KEY under .env
+    SECRET_KEY: str = "your-secret-key-change-this-in-production"
+    
     CORS_ORIGINS: str = "*"
     
     class Config:

@@ -17,6 +17,10 @@ The aim of this API is to provide better usability and more data than the source
   - [Populate Database](#populate-database)
 - [Running the API](#running-the-api)
   - [Development Server](#development-server)
+- [Authentication](#authentication)
+  - [Setting Up API Key](#setting-up-api-key)
+  - [Using the API Key](#using-the-api-key)
+  - [Swagger UI Authentication](#swagger-ui-authentication)
 - [API Documentation](#api-documentation)
 - [API Endpoints](#api-endpoints)
   - [Stops](#stops)
@@ -119,12 +123,51 @@ uvicorn app.main:app --reload
 ```
 
 
+## Authentication
+
+The API uses API key authentication. All endpoints (except the root endpoint `/`) require authentication via the `X-API-Key` header.
+
+### Setting Up API Key
+
+1. Generate a secure secret key:
+   ```bash
+   openssl rand -hex 32
+   ```
+
+2. Add the secret key to your `.env` file:
+   ```bash
+   SECRET_KEY=generated-secret-key
+   ```
+
+3. Restart the server
+
+### Using the API Key
+
+Include the `X-API-Key` header in all API requests with your secret key value.
+
+**Using curl:**
+```bash
+curl -X GET "http://localhost:8000/api/v1/stcp/buses" \
+  -H "X-API-Key: your-secret-key-here"
+```
+
+### Swagger UI Authentication
+
+The Swagger UI (`/docs`) provides an easy way to authenticate:
+
+Click the **"Authorize"** button at the top of the page and enter the SECRET_KEY`.
+Once you're authenticated, all API requests made through the Swagger UI will automatically include the API key header.
+
 ## API Documentation
 
 Once the server is running, interactive API documentation is available at:
 - **Swagger UI**: `http://localhost:8000/docs`
 
 ## API Endpoints
+
+### Authentication
+
+- `GET /api/v1/auth/verify` - Verify that the API key is valid
 
 ### Stops
 

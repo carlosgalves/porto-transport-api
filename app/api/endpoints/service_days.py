@@ -3,6 +3,7 @@ from typing import Optional
 from datetime import date
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.dependencies import get_api_key
 from app.api.schemas.service_day import ServiceDay
 from app.api.schemas.response import SimpleListResponse, SingleResponse
 from app.api.utils.response_builder import create_simple_list_response, create_single_response
@@ -14,7 +15,8 @@ router = APIRouter(prefix="/service-days", tags=["Service Days"])
 @router.get("/", response_model=SimpleListResponse[ServiceDay])
 def get_service_days(
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get all service days.
@@ -29,7 +31,8 @@ def get_service_days(
 def get_service_day_by_id(
     request: Request,
     id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
 ):
     """
     Get a specific service day by its service_id or service_type.
