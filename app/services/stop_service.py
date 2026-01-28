@@ -1,5 +1,5 @@
-from typing import List, Optional, Tuple
-from datetime import datetime, time, timedelta
+from typing import Dict, List, Optional, Tuple
+from datetime import date, datetime, time, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from app.data_source.gtfs.stcp.models.stop import Stop as StopModel
@@ -68,6 +68,9 @@ class StopService:
         stop_id: str,
         route_id: Optional[str] = None,
         service_id: Optional[str] = None,
+        service_id_dates: Optional[Dict[str, List[date]]] = None,
+        window_start: Optional[datetime] = None,
+        window_end: Optional[datetime] = None,
         page: int = 0,
         size: int = 100
     ) -> Tuple[List[ScheduledArrival], int]:
@@ -85,39 +88,89 @@ class StopService:
         
         if service_id is not None:
             query = query.filter(TripModel.service_id == service_id)
-        
-        total = query.count()
-        
-        skip = page * size
-        arrivals = query.order_by(ScheduledArrivalModel.arrival_time).offset(skip).limit(size).all()
-        
-        # Convert to schema with trip and stop info
-        result = []
+        elif service_id_dates:
+            query = query.filter(TripModel.service_id.in_(list(service_id_dates.keys())))
+
+        if not window_start or not window_end:
+            total = query.count()
+            skip = page * size
+            arrivals = query.order_by(ScheduledArrivalModel.arrival_time).offset(skip).limit(size).all()
+
+            # Convert to schema with trip and stop info
+            result = []
+            for arrival in arrivals:
+                trip = db.query(TripModel).filter(TripModel.trip_id == arrival.trip_id).first()
+                if trip:
+                    trip_info = TripInfo(
+                        id=arrival.trip_id,
+                        route_id=trip.route_id,
+                        direction_id=trip.direction_id,
+                        service_id=trip.service_id,
+                        number=trip.trip_number
+                    )
+
+                    stop_info = StopInfo(
+                        id=arrival.stop_id,
+                        sequence=arrival.stop_sequence
+                    )
+
+                    scheduled_arrival = ScheduledArrival(
+                        trip=trip_info,
+                        stop=stop_info,
+                        arrival_time=arrival.arrival_time,
+                        departure_time=arrival.departure_time
+                    )
+                    result.append(scheduled_arrival)
+
+            return result, total
+
+
+        arrivals = query.all()
+
+        service_id_dates = service_id_dates or {}
+        if service_id is not None:
+            service_id_dates.setdefault(service_id, [window_start.date(), window_end.date()])
+
+        candidates: List[tuple[datetime, ScheduledArrival]] = []
+
         for arrival in arrivals:
             trip = db.query(TripModel).filter(TripModel.trip_id == arrival.trip_id).first()
-            if trip:
-                trip_info = TripInfo(
-                    id=arrival.trip_id,
-                    route_id=trip.route_id,
-                    direction_id=trip.direction_id,
-                    service_id=trip.service_id,
-                    number=trip.trip_number
-                )
-                
-                stop_info = StopInfo(
-                    id=arrival.stop_id,
-                    sequence=arrival.stop_sequence
-                )
-                
-                scheduled_arrival = ScheduledArrival(
-                    trip=trip_info,
-                    stop=stop_info,
-                    arrival_time=arrival.arrival_time,
-                    departure_time=arrival.departure_time
-                )
-                result.append(scheduled_arrival)
-        
-        return result, total
+            if not trip:
+                continue
+
+            trip_info = TripInfo(
+                id=arrival.trip_id,
+                route_id=trip.route_id,
+                direction_id=trip.direction_id,
+                service_id=trip.service_id,
+                number=trip.trip_number
+            )
+
+            stop_info = StopInfo(
+                id=arrival.stop_id,
+                sequence=arrival.stop_sequence
+            )
+
+            scheduled_arrival = ScheduledArrival(
+                trip=trip_info,
+                stop=stop_info,
+                arrival_time=arrival.arrival_time,
+                departure_time=arrival.departure_time
+            )
+
+            dates_for_service = service_id_dates.get(trip.service_id, [])
+            for d in dates_for_service:
+                dt = datetime.combine(d, arrival.arrival_time)
+                if window_start <= dt <= window_end:
+                    candidates.append((dt, scheduled_arrival))
+
+        candidates.sort(key=lambda x: x[0])
+        total = len(candidates)
+
+        start = page * size
+        end = start + size
+        page_items = [item for _, item in candidates[start:end]]
+        return page_items, total
     
     @staticmethod
     def calculate_scheduled_arrival_time(arrival_time: Optional[time], delay_minutes: Optional[int]) -> Optional[time]:

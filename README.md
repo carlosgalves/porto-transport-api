@@ -173,7 +173,12 @@ Once the server is running, interactive API documentation is available at:
 
 - `GET /api/v1/stcp/stops` - List all stops (paginated, filterable by zone_id)
 - `GET /api/v1/stcp/stops/{stop_id}` - Get stop details
-- `GET /api/v1/stcp/stops/{stop_id}/scheduled` - Get scheduled arrivals for a stop (paginated, filterable by route_id and service_id)
+- `GET /api/v1/stcp/stops/{stop_id}/scheduled` - Get scheduled arrivals for a stop
+  - **Default behavior**: Returns only arrivals for the next 24 hours (Handles service day changes after midnight). `service_id` is ignored.
+
+  - `all` (optional, default: `false`): If `true`, returns all scheduled arrivals without time filtering.
+  - **Example**: `GET /api/v1/stcp/stops/CNTT2/scheduled?all=false` returns next 24 hours
+
 - `GET /api/v1/stcp/stops/{stop_id}/realtime` - Get real-time arrivals for a stop (fetched on-demand from STCP API, with calculated fields)
 
 ### Routes
@@ -278,7 +283,8 @@ While this API uses STCP data as its foundation, some data is calculated or deri
    - **`stop_sequence`**: Not provided by the STCP API. Calculated by matching the real-time arrival with scheduled arrivals from the GTFS data, finding the closest scheduled arrival time within a 60-second tolerance.
    - **`trip_number`**: Not provided by the STCP API. Derived by matching the real-time arrival with scheduled trip data to identify the corresponding trip number.
 
-4. **Scheduled Arrivals**: While based on GTFS `stop_times.txt` data, scheduled arrivals are calculated by combining stop times with trip information (route, direction, service day) to provide a complete arrival context.
+4. **Scheduled Arrivals**: While based on GTFS `stop_times.txt` data, scheduled arrivals are calculated by combining stop times with trip information (route, direction, service day) to provide a complete arrival context. 
+By default, the scheduled arrivals endpoint returns only arrivals within the next 24 hours, automatically handling service day changes after midnight. The 24-hour window mode ignores the `service_id` parameter and automatically determines the correct service days for today and the next day.
 
 ### Direct STCP Data
 

@@ -1,6 +1,7 @@
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from typing import List
 from app.api.schemas.response import ErrorResponse, ErrorDetail
@@ -16,7 +17,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
     )
     return JSONResponse(
         status_code=exc.status_code,
-        content=error_response.model_dump(exclude_none=True)
+        content=jsonable_encoder(error_response.model_dump(exclude_none=True))
     )
 
 
@@ -39,7 +40,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=error_response.model_dump(exclude_none=True)
+        content=jsonable_encoder(error_response.model_dump(exclude_none=True))
     )
 
 
@@ -53,5 +54,5 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
     )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=error_response.model_dump(exclude_none=True)
+        content=jsonable_encoder(error_response.model_dump(exclude_none=True))
     )
