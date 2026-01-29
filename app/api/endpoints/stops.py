@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import get_api_key
 from app.api.schemas.stop import Stop, StopResponse
-from app.api.schemas.arrival import ScheduledArrival, ScheduledArrivalResponse, RealtimeArrival, RealtimeArrivalsResponse
+from app.api.schemas.arrival import ScheduledArrivalResponse, RealtimeArrivalsResponse
 from app.api.schemas.response import SingleResponse
 from app.api.utils.pagination import create_paginated_response
 from app.api.utils.response_builder import create_single_response, build_stop_links
@@ -121,18 +121,22 @@ def get_scheduled_arrivals(
     return create_paginated_response(request, arrivals, total, page, size, ScheduledArrivalResponse)
 
 
-@router.get("/{stop_id}/realtime", response_model=SingleResponse[RealtimeArrivalsResponse])
+@router.get("/{stop_id}/realtime", response_model=RealtimeArrivalsResponse)
 async def get_realtime_arrivals(
     request: Request,
     stop_id: str,
+    page: int = Query(0, ge=0, description="Page number"),
+    size: int = Query(100, ge=1, le=100, description="Page size (1-100)"),
     db: Session = Depends(get_db),
     api_key: str = Depends(get_api_key)
 ):
     """
     Get real-time arrivals for a specific stop.
     """
-    response = await StopService.get_realtime_arrivals_response(db=db, stop_id=stop_id)
-    if response is None:
+    result = await StopService.get_realtime_arrivals_response(db=db, stop_id=stop_id)
+    if result is None:
         raise HTTPException(status_code=404, detail="Stop not found")
-    
-    return create_single_response(response, request)
+    items, total = result
+    skip = page * size
+    page_items = items[skip:skip + size]
+    return create_paginated_response(request, page_items, total, page, size, RealtimeArrivalsResponse)

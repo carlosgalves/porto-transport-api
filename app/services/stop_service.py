@@ -10,9 +10,8 @@ from app.data_source.stcp.parser import STCPParser
 from app.api.schemas.stop import Stop
 from app.api.schemas.shared import Coordinates
 from app.api.schemas.arrival import (
-    ScheduledArrival, TripInfo, StopInfo, 
-    RealtimeArrivalsResponse, RealtimeArrivalItem,
-    RealtimeTripInfo, RealtimeStopInfo, RealtimeStopResponseInfo
+    ScheduledArrival, TripInfo, StopInfo,
+    RealtimeArrival,
 )
 
 
@@ -106,7 +105,8 @@ class StopService:
                         route_id=trip.route_id,
                         direction_id=trip.direction_id,
                         service_id=trip.service_id,
-                        number=trip.trip_number
+                        number=trip.trip_number,
+                        headsign=trip.headsign
                     )
 
                     stop_info = StopInfo(
@@ -143,7 +143,8 @@ class StopService:
                 route_id=trip.route_id,
                 direction_id=trip.direction_id,
                 service_id=trip.service_id,
-                number=trip.trip_number
+                number=trip.trip_number,
+                headsign=trip.headsign
             )
 
             stop_info = StopInfo(
@@ -235,23 +236,18 @@ class StopService:
         return None
 
     @staticmethod
-    async def get_realtime_arrivals_response(db: Session, stop_id: str) -> Optional[RealtimeArrivalsResponse]:
-        
+    async def get_realtime_arrivals_response(db: Session, stop_id: str) -> Optional[Tuple[List[RealtimeArrival], int]]:
         stop = db.query(StopModel).filter(StopModel.id == stop_id).first()
         if not stop:
             return None
-        
+
         # Fetch real-time data from API
         stop_realtime_data = await STCPClient.fetch_stop_realtime(stop_id)
         if not stop_realtime_data:
-            return RealtimeArrivalsResponse(
-                stop=RealtimeStopResponseInfo(id=stop_id, name=stop.name),
-                arrivals=[],
-                last_updated=datetime.utcnow()
-            )
-        
+            return ([], 0)
+
         parsed_arrivals = STCPParser.parse_stop_realtime(stop_realtime_data)
-        
+
         last_updated_str = stop_realtime_data.get("last_updated")
         if last_updated_str:
             try:
@@ -260,21 +256,19 @@ class StopService:
                 last_updated = datetime.utcnow()
         else:
             last_updated = datetime.utcnow()
-        
-        arrival_items = []
+
+        arrival_items: List[RealtimeArrival] = []
         for arrival_data in parsed_arrivals:
             route_id = arrival_data["route_id"]
             direction_id = arrival_data["direction_id"]
             service_id = arrival_data["service_id"]
             arrival_time = arrival_data["arrival_time"]
             delay_minutes = arrival_data["delay_minutes"]
-            
+
             scheduled_arrival_time = StopService.calculate_scheduled_arrival_time(arrival_time, delay_minutes)
-            
-            # find matching scheduled arrival to get trip_number and stop_sequence
+
             trip_number = arrival_data["trip_number"]
             stop_sequence = arrival_data["stop_sequence"]
-            
             if scheduled_arrival_time:
                 match = StopService.find_matching_scheduled_arrival(
                     db=db,
@@ -287,39 +281,36 @@ class StopService:
                 if match:
                     trip_number = match["trip_number"]
                     stop_sequence = match["stop_sequence"]
-            
+
             trip_id = f"{route_id}_{direction_id}_{service_id}_{trip_number}"
-            
-            trip_info = RealtimeTripInfo(
+            trip_info = TripInfo(
                 id=trip_id,
-                number=trip_number,
                 route_id=route_id,
                 direction_id=direction_id,
                 service_id=service_id,
+                number=trip_number,
                 headsign=arrival_data.get("trip_headsign")
             )
-            
-            stop_info = RealtimeStopInfo(
+            stop_info = StopInfo(
                 id=stop_id,
                 sequence=stop_sequence
             )
-            
-            arrival_items.append(RealtimeArrivalItem(
+
+            arrival_items.append(RealtimeArrival(
+                vehicle_id=arrival_data["vehicle_id"],
                 trip=trip_info,
                 stop=stop_info,
-                vehicle_id=arrival_data["vehicle_id"],
                 realtime_arrival_time=arrival_time,
                 scheduled_arrival_time=scheduled_arrival_time,
                 arrival_minutes=arrival_data["arrival_minutes"],
                 delay_minutes=delay_minutes,
-                status=arrival_data["status"]
+                status=arrival_data["status"],
+                last_updated=last_updated
             ))
-        
-        arrival_items.sort(key=lambda x: (x.arrival_minutes if x.arrival_minutes is not None else float('inf'), 
-                                         x.realtime_arrival_time if x.realtime_arrival_time else time.max))
-        
-        return RealtimeArrivalsResponse(
-            stop=RealtimeStopResponseInfo(id=stop_id, name=stop.name),
-            arrivals=arrival_items,
-            last_updated=last_updated
-        )
+
+        arrival_items.sort(key=lambda x: (
+            x.arrival_minutes if x.arrival_minutes is not None else float('inf'),
+            x.realtime_arrival_time if x.realtime_arrival_time else time.max
+        ))
+
+        return (arrival_items, len(arrival_items))
