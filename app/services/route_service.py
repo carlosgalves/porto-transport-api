@@ -48,29 +48,39 @@ class RouteService:
         if db_route:
             route = RouteService._model_to_schema(db_route, db=db, include_service_days=True)
             if include_directions:
-                directions = RouteService.get_route_directions(
+                directions = RouteService.get_route_directions_from_trips(
                     db=db,
                     route_id=route_id,
                     service_ids=service_ids
                 )
-                
-                direction_map: Dict[Tuple[str, int], List[str]] = defaultdict(list)
-                for direction in directions:
-                    key = (direction.headsign, direction.direction_id)
-                    if direction.service_id not in direction_map[key]:
-                        direction_map[key].append(direction.service_id)
-                
-                route.directions = [
-                    RouteDirectionItem(
-                        headsign=headsign,
-                        direction_id=direction_id,
-                        service_days=sorted(service_days)
-                    )
-                    for (headsign, direction_id), service_days in sorted(direction_map.items())
-                ]
+                route.directions = RouteService._build_directions_for_route(
+                    directions,
+                    service_ids_filter=None
+                )
             return route
         return None
     
+    @staticmethod
+    def _build_directions_for_route(
+        directions: List[RouteDirection],
+        service_ids_filter: Optional[List[str]] = None
+    ) -> List[RouteDirectionItem]:
+        if service_ids_filter:
+            directions = [d for d in directions if d.service_id in service_ids_filter]
+        direction_map: Dict[Tuple[str, int], List[str]] = defaultdict(list)
+        for direction in directions:
+            key = (direction.headsign, direction.direction_id)
+            if direction.service_id not in direction_map[key]:
+                direction_map[key].append(direction.service_id)
+        return [
+            RouteDirectionItem(
+                headsign=headsign,
+                direction_id=direction_id,
+                service_days=sorted(service_days)
+            )
+            for (headsign, direction_id), service_days in sorted(direction_map.items())
+        ]
+
     @staticmethod
     def get_routes(
         db: Session, 
@@ -95,6 +105,42 @@ class RouteService:
         db_routes = query.offset(skip).limit(size).all()
         
         routes = [RouteService._model_to_schema(route, db=db, include_service_days=True) for route in db_routes]
+
+        if db_routes:
+            page_route_ids = [str(r.id) for r in db_routes]
+            dir_query = (
+                db.query(
+                    TripModel.route_id,
+                    TripModel.direction_id,
+                    TripModel.headsign,
+                    TripModel.service_id,
+                )
+                .filter(TripModel.route_id.in_(page_route_ids))
+                .distinct()
+            )
+            if service_ids:
+                dir_query = dir_query.filter(TripModel.service_id.in_(service_ids))
+            rows = dir_query.all()
+            directions_by_route: Dict[str, List[RouteDirection]] = defaultdict(list)
+            for row in rows:
+                directions_by_route[str(row.route_id)].append(
+                    RouteDirection(
+                        route_id=row.route_id,
+                        direction_id=row.direction_id,
+                        headsign=row.headsign,
+                        service_id=row.service_id,
+                    )
+                )
+            for route in routes:
+                route_directions = directions_by_route.get(str(route.id), [])
+                route.directions = RouteService._build_directions_for_route(
+                    route_directions,
+                    service_ids_filter=None
+                )
+        else:
+            for route in routes:
+                route.directions = []
+
         return routes, total
     
     @staticmethod
@@ -106,6 +152,38 @@ class RouteService:
             headsign=db_route_direction.headsign
         )
     
+    @staticmethod
+    def get_route_directions_from_trips(
+        db: Session,
+        route_id: str,
+        direction_id: Optional[int] = None,
+        service_ids: Optional[List[str]] = None,
+    ) -> List[RouteDirection]:
+        query = (
+            db.query(
+                TripModel.route_id,
+                TripModel.direction_id,
+                TripModel.headsign,
+                TripModel.service_id,
+            )
+            .filter(TripModel.route_id == route_id)
+            .distinct()
+        )
+        if direction_id is not None:
+            query = query.filter(TripModel.direction_id == direction_id)
+        if service_ids:
+            query = query.filter(TripModel.service_id.in_(service_ids))
+        rows = query.all()
+        return [
+            RouteDirection(
+                route_id=row.route_id,
+                direction_id=row.direction_id,
+                headsign=row.headsign,
+                service_id=row.service_id,
+            )
+            for row in rows
+        ]
+
     @staticmethod
     def get_route_directions(
         db: Session,
