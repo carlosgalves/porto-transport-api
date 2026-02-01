@@ -137,7 +137,7 @@ class STCPParser:
         else:
             last_updated = datetime.utcnow()
         
-        arrivals = stop_realtime_data.get("arrivals", [])
+        arrivals = stop_realtime_data.get("arrivals") or []
         parsed_arrivals = []
         
         for arrival in arrivals:
