@@ -93,11 +93,12 @@ def get_route_stops(
     request: Request,
     route_id: str,
     direction_id: Optional[int] = Query(None, description="Filter stops by direction_id"),
+    headsign: Optional[str] = Query(None, description="Filter stops by headsign ('first_stop - last_stop')"),
     db: Session = Depends(get_db),
     api_key: str = Depends(get_api_key)
 ):
     """
-    Get all stops for a specific route, grouped by direction_id.
+    Get all stops for a specific route, grouped by direction and headsign.
     """
     route = RouteService.get_route_by_id(db=db, route_id=route_id, include_directions=False, service_ids=None)
     if route is None:
@@ -106,10 +107,11 @@ def get_route_stops(
     stops = RouteService.get_route_stops(
         db=db,
         route_id=route_id,
-        direction_id=direction_id
+        direction_id=direction_id,
+        headsign=headsign
     )
     
-    # Group stops by (direction_id, headsign, service_id)
+    # Group by (direction_id, headsign, service_id) -> list of stops
     stops_by_pattern = defaultdict(list)
     for stop in stops:
         key = (stop.route.direction_id, stop.route.headsign, stop.route.service_id)
@@ -119,19 +121,25 @@ def get_route_stops(
                 sequence=stop.sequence
             )
         )
-    # Build direction groups: one per pattern (direction_id, headsign, service_id)
+    # Merge patterns that share the same (direction_id, headsign) and same stop list
+    merged = {}
+    for (dir_id, headsign, service_id), stops_list in stops_by_pattern.items():
+        sorted_stops = sorted(stops_list, key=lambda s: s.sequence)
+        stop_sig = tuple((s.sequence, s.stop.id) for s in sorted_stops)
+        key = (dir_id, headsign, stop_sig)
+        if key not in merged:
+            merged[key] = {"service_ids": set(), "stops": sorted_stops}
+        merged[key]["service_ids"].add(service_id)
     direction_groups = [
         RouteDirectionStops(
             direction_id=dir_id,
             headsign=headsign,
-            service_id=service_id,
-            stops=sorted(stops_list, key=lambda s: s.sequence)
+            service_ids=sorted(data["service_ids"]),
+            stops=data["stops"]
         )
-        for (dir_id, headsign, service_id), stops_list in sorted(stops_by_pattern.items())
+        for (dir_id, headsign, _), data in sorted(merged.items(), key=lambda x: (x[0][0], x[0][1]))
     ]
-    
     from app.api.schemas.route import RouteStopsGroupedData
-    
     return RouteStopsGroupedResponse(
         data=RouteStopsGroupedData(
             route_id=route_id,

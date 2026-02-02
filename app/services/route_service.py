@@ -298,7 +298,8 @@ class RouteService:
     def get_route_stops(
         db: Session,
         route_id: str,
-        direction_id: Optional[int] = None
+        direction_id: Optional[int] = None,
+        headsign: Optional[str] = None
     ) -> List[RouteStop]:
         query = db.query(
             RouteStopModel,
@@ -309,6 +310,8 @@ class RouteService:
         ).filter(RouteStopModel.route_id == route_id)
         if direction_id is not None:
             query = query.filter(RouteStopModel.direction_id == direction_id)
+        if headsign is not None and headsign.strip():
+            query = query.filter(RouteStopModel.headsign == headsign.strip())
         results = query.order_by(
             RouteStopModel.direction_id,
             RouteStopModel.headsign,
@@ -333,8 +336,9 @@ class RouteService:
                 )
                 for rs, stop_name, zone_id in results
             ]
-        # Fallback: derive from trip_stops if route_stops table is empty
-        # Get trips for this route
+        # Fallback: derive from trip_stops if route_stops table is empty (no headsign filter)
+        if headsign is not None and headsign.strip():
+            return []
         trip_query = db.query(TripModel).filter(TripModel.route_id == route_id)
         if direction_id is not None:
             trip_query = trip_query.filter(TripModel.direction_id == direction_id)

@@ -57,7 +57,7 @@ class RouteStopItem(BaseModel):
 class RouteDirectionStops(BaseModel):
     direction_id: int = Field(...)
     headsign: Optional[str] = Field(...)
-    service_id: Optional[str] = Field(...)
+    service_ids: List[str] = Field(...)
     stops: List[RouteStopItem] = Field(...)
 
 
