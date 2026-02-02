@@ -15,6 +15,18 @@ from app.api.schemas.shape import RouteShape, ShapePoint
 from app.api.schemas.shared import Coordinates
 
 
+def _route_sort_key(route: RouteModel) -> Tuple[int, int, str]:
+    """Sort method: numeric-only ids first, then ZC/ZF (107, 106 by short_name), then M routes (1M, 2M, ... 10M)"""
+    rid = str(route.id)
+    if route.short_name in ("ZC", "ZF"):
+        return (1, 0, str(route.short_name))
+    if rid.isdigit():
+        return (0, int(rid), "")
+    if len(rid) > 1 and rid[-1] == "M" and rid[:-1].isdigit():
+        return (2, int(rid[:-1]), "")
+    return (1, 0, rid)
+
+
 class RouteService:
     
     @staticmethod
@@ -89,7 +101,7 @@ class RouteService:
         size: int = 100
     ) -> Tuple[List[Route], int]:
 
-        query = db.query(RouteModel).order_by(RouteModel.id)
+        query = db.query(RouteModel)
         if service_ids:
             route_ids = [
                 rd.route_id for rd in db.query(RouteDirectionModel.route_id).filter(
@@ -98,10 +110,11 @@ class RouteService:
             ]
             query = query.filter(RouteModel.id.in_(route_ids))
         
-        total = query.count()
-        
+        all_db_routes = query.all()
+        all_db_routes.sort(key=_route_sort_key)
+        total = len(all_db_routes)
         skip = page * size
-        db_routes = query.offset(skip).limit(size).all()
+        db_routes = all_db_routes[skip : skip + size]
         
         routes = [RouteService._model_to_schema(route, db=db, include_service_days=True) for route in db_routes]
 
