@@ -89,8 +89,7 @@ class RouteService:
         size: int = 100
     ) -> Tuple[List[Route], int]:
 
-        query = db.query(RouteModel)
-        
+        query = db.query(RouteModel).order_by(RouteModel.id)
         if service_ids:
             route_ids = [
                 rd.route_id for rd in db.query(RouteDirectionModel.route_id).filter(
