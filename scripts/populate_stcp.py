@@ -102,14 +102,14 @@ def populate_all():
         load_route_shapes()
         print()
         
-        # Route stops
-        print(f"Step 9/{steps}: Loading route stops...")
-        load_route_stops()
+        # Trip stops
+        print(f"Step 9/{steps}: Loading trip stops...")
+        load_trip_stops()
         print()
         
-        # Trip stops
-        print(f"Step 10/{steps}: Loading trip stops...")
-        load_trip_stops()
+        # Route stops
+        print(f"Step 10/{steps}: Loading route stops...")
+        load_route_stops()
         print()
         
         # Scheduled arrivals

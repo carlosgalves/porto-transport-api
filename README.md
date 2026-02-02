@@ -2,6 +2,7 @@
 
 Unofficial REST API for public transport data for the city of Porto, Portugal. This API provides access to STCP (Sociedade de Transportes Colectivos do Porto) transit data including information regarding: routes, stops, trips, bus gps positions as well as scheduled and real-time arrival time.
 
+**Note:** Some data may not be correct or fully up to date as STCP does not keep their open GTFS data fully up to date.
 
 The aim of this API is to provide better usability and more data than the source information. While this API uses STCP data as its foundation, some data is calculated or derived from processing the source data rather than being directly provided by STCP. See the [Data Processing](#data-processing) section for details.
 
@@ -94,12 +95,12 @@ This script will populate the database with:
 2. Stops
 3. Service days
 4. Routes
-5. Trips
-6. Shapes
+5. Shapes
+6. Trips
 7. Trip shapes
 8. Route shapes
-9. Route stops
-10. Trip stops
+9. Trip stops
+10. Route stops
 11. Scheduled arrivals
 
 
@@ -263,7 +264,7 @@ The API runs a background task that updates bus positions every 15 seconds (this
 
 ## Data Sources
 
-- [**GTFS Feed**](https://opendata.porto.digital/dataset/horarios-paragens-e-rotas-em-formato-gtfs-stcp): STCP static transit data (routes, stops, schedules)
+- [**GTFS Feed**](https://opendata.porto.digital/dataset/horarios-paragens-e-rotas-em-formato-gtfs-stcp): STCP static transit data (routes, stops, schedules). STCP does not always keep this fully up to date, so it may contain inaccuracies or outdated information.
 - [**FIWARE**](https://broker.fiware.urbanplatform.portodigital.pt/v2/): Real-time bus position data
 - [**STCP API**](https://stcp.pt/api/): Real-time arrival information
 
@@ -283,18 +284,15 @@ While this API uses STCP data as its foundation, some data is calculated or deri
    - **`stop_sequence`**: Not provided by the STCP API. Calculated by matching the real-time arrival with scheduled arrivals from the GTFS data, finding the closest scheduled arrival time within a 60-second tolerance.
    - **`trip_number`**: Not provided by the STCP API. Derived by matching the real-time arrival with scheduled trip data to identify the corresponding trip number.
 
-4. **Scheduled Arrivals**: While based on GTFS `stop_times.txt` data, scheduled arrivals are calculated by combining stop times with trip information (route, direction, service day) to provide a complete arrival context. 
+4. **Route Stops**: Route stops are derived from GTFS trips, trip_stops, and stops. The system groups trips by unique stop sequence (same ordered list of stops = same pattern), computes a full headsign as "first_stop_name - last_stop_name" from stop names, and stores one row per (route_id, direction_id, headsign, service_id, stop_sequence) with the corresponding stop_id. For instance, for a given route and direction_id we may have multiple trips with different headsigns and stops, e.g: route_id = 206, and direction_id = 0 has two different unique routes "CAMPANHÃ - BR. STO. EUGÉNIO" and "CAMPANHÃ - VISO" with a different set of stops. Some routes, liek 205, will have up to 12 different unique routes.
+
+**Note** that the headsigns used by STCP do not always match the ones used here (as here they are set based on first stop and last stop name). e.g: "CAMPANHÃ - BR. STO.EUGÉNIO (ESCOLA)" is referred to as "CAMPANHÃ - STO.EUGÉNIO" by STCP.
+
+
+5. **Scheduled Arrivals**: While based on GTFS `stop_times.txt` data, scheduled arrivals are calculated by combining stop times with trip information (route, direction, service day) to provide a complete arrival context. 
+
 By default, the scheduled arrivals endpoint returns only arrivals within the next 24 hours, automatically handling service day changes after midnight. The 24-hour window mode ignores the `service_id` parameter and automatically determines the correct service days for today and the next day.
 
-### Direct STCP Data
-
-The following data comes directly from STCP sources without calculation:
-- Stops (from GTFS)
-- Routes (from GTFS)
-- Trips (from GTFS)
-- Service days (from GTFS)
-- Bus positions (from FIWARE platform)
-- Real-time arrival times and basic trip information (from STCP API)
 
 ## Acknowledgments
 

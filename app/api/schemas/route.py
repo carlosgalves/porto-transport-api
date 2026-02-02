@@ -30,6 +30,8 @@ class RouteResponse(PaginatedResponse[Route]): pass
 class RouteStopRouteInfo(BaseModel):
     id: str = Field(...)
     direction_id: int = Field(...)
+    headsign: Optional[str] = Field(...)
+    service_id: Optional[str] = Field(...)
 
 
 class RouteStopStopInfo(BaseModel):
@@ -54,6 +56,8 @@ class RouteStopItem(BaseModel):
 
 class RouteDirectionStops(BaseModel):
     direction_id: int = Field(...)
+    headsign: Optional[str] = Field(...)
+    service_id: Optional[str] = Field(...)
     stops: List[RouteStopItem] = Field(...)
 
 

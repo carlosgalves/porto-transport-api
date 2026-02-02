@@ -48,7 +48,7 @@ class RouteService:
         if db_route:
             route = RouteService._model_to_schema(db_route, db=db, include_service_days=True)
             if include_directions:
-                directions = RouteService.get_route_directions_from_trips(
+                directions = RouteService.get_route_directions_from_route_stops(
                     db=db,
                     route_id=route_id,
                     service_ids=service_ids
@@ -110,16 +110,16 @@ class RouteService:
             page_route_ids = [str(r.id) for r in db_routes]
             dir_query = (
                 db.query(
-                    TripModel.route_id,
-                    TripModel.direction_id,
-                    TripModel.headsign,
-                    TripModel.service_id,
+                    RouteStopModel.route_id,
+                    RouteStopModel.direction_id,
+                    RouteStopModel.headsign,
+                    RouteStopModel.service_id,
                 )
-                .filter(TripModel.route_id.in_(page_route_ids))
+                .filter(RouteStopModel.route_id.in_(page_route_ids))
                 .distinct()
             )
             if service_ids:
-                dir_query = dir_query.filter(TripModel.service_id.in_(service_ids))
+                dir_query = dir_query.filter(RouteStopModel.service_id.in_(service_ids))
             rows = dir_query.all()
             directions_by_route: Dict[str, List[RouteDirection]] = defaultdict(list)
             for row in rows:
@@ -152,6 +152,41 @@ class RouteService:
             headsign=db_route_direction.headsign
         )
     
+    @staticmethod
+    def get_route_directions_from_route_stops(
+        db: Session,
+        route_id: str,
+        direction_id: Optional[int] = None,
+        service_ids: Optional[List[str]] = None,
+    ) -> List[RouteDirection]:
+        query = (
+            db.query(
+                RouteStopModel.route_id,
+                RouteStopModel.direction_id,
+                RouteStopModel.headsign,
+                RouteStopModel.service_id,
+            )
+            .filter(RouteStopModel.route_id == route_id)
+            .distinct()
+        )
+        if direction_id is not None:
+            query = query.filter(RouteStopModel.direction_id == direction_id)
+        if service_ids:
+            query = query.filter(RouteStopModel.service_id.in_(service_ids))
+        rows = query.all()
+        if rows:
+            return [
+                RouteDirection(
+                    route_id=row.route_id,
+                    direction_id=row.direction_id,
+                    headsign=row.headsign,
+                    service_id=row.service_id,
+                )
+                for row in rows
+            ]
+        return []
+
+
     @staticmethod
     def get_route_directions_from_trips(
         db: Session,
@@ -272,18 +307,22 @@ class RouteService:
         ).join(
             StopModel, RouteStopModel.stop_id == StopModel.id
         ).filter(RouteStopModel.route_id == route_id)
-        
         if direction_id is not None:
             query = query.filter(RouteStopModel.direction_id == direction_id)
-        
-        results = query.order_by(RouteStopModel.direction_id, RouteStopModel.stop_sequence).all()
-        
+        results = query.order_by(
+            RouteStopModel.direction_id,
+            RouteStopModel.headsign,
+            RouteStopModel.service_id,
+            RouteStopModel.stop_sequence,
+        ).all()
         if results:
             return [
                 RouteStop(
                     route=RouteStopRouteInfo(
                         id=rs.route_id,
-                        direction_id=rs.direction_id
+                        direction_id=rs.direction_id,
+                        headsign=rs.headsign,
+                        service_id=rs.service_id,
                     ),
                     stop=RouteStopStopInfo(
                         id=rs.stop_id,
@@ -294,7 +333,6 @@ class RouteService:
                 )
                 for rs, stop_name, zone_id in results
             ]
-        
         # Fallback: derive from trip_stops if route_stops table is empty
         # Get trips for this route
         trip_query = db.query(TripModel).filter(TripModel.route_id == route_id)

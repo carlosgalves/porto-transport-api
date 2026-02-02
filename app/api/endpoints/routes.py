@@ -109,25 +109,25 @@ def get_route_stops(
         direction_id=direction_id
     )
     
-    # Group stops by direction_id
-    stops_by_direction = defaultdict(list)
-    
+    # Group stops by (direction_id, headsign, service_id)
+    stops_by_pattern = defaultdict(list)
     for stop in stops:
-        dir_id = stop.route.direction_id
-        stops_by_direction[dir_id].append(
+        key = (stop.route.direction_id, stop.route.headsign, stop.route.service_id)
+        stops_by_pattern[key].append(
             RouteStopItem(
                 stop=stop.stop,
                 sequence=stop.sequence
             )
         )
-    
-    # Build direction groups, sorted by direction_id and stops by sequence
+    # Build direction groups: one per pattern (direction_id, headsign, service_id)
     direction_groups = [
         RouteDirectionStops(
             direction_id=dir_id,
+            headsign=headsign,
+            service_id=service_id,
             stops=sorted(stops_list, key=lambda s: s.sequence)
         )
-        for dir_id, stops_list in sorted(stops_by_direction.items())
+        for (dir_id, headsign, service_id), stops_list in sorted(stops_by_pattern.items())
     ]
     
     from app.api.schemas.route import RouteStopsGroupedData
