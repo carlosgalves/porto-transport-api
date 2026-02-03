@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import time, datetime
 from app.api.schemas.pagination import PaginatedResponse
 
@@ -21,24 +21,23 @@ class StopInfo(BaseModel):
 class ScheduledArrival(BaseModel):
     trip: TripInfo = Field(...)
     stop: StopInfo = Field(...)
-    arrival_time: time = Field(...)
-    departure_time: time = Field(...)
-    
-    class Config:
-        from_attributes = True
+    # all = false => use ISO 8601 datetime
+    # all = true => use time only
+    arrival_time: Union[datetime, time] = Field(...)
+    departure_time: Union[datetime, time] = Field(...)
 
 
 class RealtimeArrival(BaseModel):
     vehicle_id: str = Field(...)
     trip: TripInfo = Field(...)
     stop: StopInfo = Field(...)
-    realtime_arrival_time: Optional[time] = Field(None)
-    scheduled_arrival_time: Optional[time] = Field(None)
+    realtime_arrival_time: Optional[datetime] = Field(None, description="ISO 8601 datetime")
+    scheduled_arrival_time: Optional[datetime] = Field(None, description="ISO 8601 datetime")
     arrival_minutes: Optional[float] = Field(None)
     delay_minutes: Optional[float] = Field(None)
     status: Optional[str] = Field(None)
     last_updated: datetime = Field(...)
-    
+
     class Config:
         from_attributes = True
 

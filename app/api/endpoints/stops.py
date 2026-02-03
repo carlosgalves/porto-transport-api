@@ -114,6 +114,7 @@ def get_scheduled_arrivals(
         service_id_dates=service_id_dates,
         window_start=window_start,
         window_end=window_end,
+        include_date=not all,
         page=page,
         size=size
     )

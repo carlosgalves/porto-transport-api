@@ -70,6 +70,7 @@ class StopService:
         service_id_dates: Optional[Dict[str, List[date]]] = None,
         window_start: Optional[datetime] = None,
         window_end: Optional[datetime] = None,
+        include_date: bool = True,
         page: int = 0,
         size: int = 100
     ) -> Tuple[List[ScheduledArrival], int]:
@@ -114,11 +115,17 @@ class StopService:
                         sequence=arrival.stop_sequence
                     )
 
+                    if include_date:
+                        at = datetime.combine(date.today(), arrival.arrival_time)
+                        dt = datetime.combine(date.today(), arrival.departure_time)
+                    else:
+                        at = arrival.arrival_time
+                        dt = arrival.departure_time
                     scheduled_arrival = ScheduledArrival(
                         trip=trip_info,
                         stop=stop_info,
-                        arrival_time=arrival.arrival_time,
-                        departure_time=arrival.departure_time
+                        arrival_time=at,
+                        departure_time=dt
                     )
                     result.append(scheduled_arrival)
 
@@ -152,17 +159,22 @@ class StopService:
                 sequence=arrival.stop_sequence
             )
 
-            scheduled_arrival = ScheduledArrival(
-                trip=trip_info,
-                stop=stop_info,
-                arrival_time=arrival.arrival_time,
-                departure_time=arrival.departure_time
-            )
-
             dates_for_service = service_id_dates.get(trip.service_id, [])
             for d in dates_for_service:
                 dt = datetime.combine(d, arrival.arrival_time)
                 if window_start <= dt <= window_end:
+                    if include_date:
+                        at = datetime.combine(d, arrival.arrival_time)
+                        dep = datetime.combine(d, arrival.departure_time)
+                    else:
+                        at = arrival.arrival_time
+                        dep = arrival.departure_time
+                    scheduled_arrival = ScheduledArrival(
+                        trip=trip_info,
+                        stop=stop_info,
+                        arrival_time=at,
+                        departure_time=dep
+                    )
                     candidates.append((dt, scheduled_arrival))
 
         candidates.sort(key=lambda x: x[0])
@@ -296,12 +308,26 @@ class StopService:
                 sequence=stop_sequence
             )
 
+            # Use last_updated date; if time is before last_updated, use next day
+            base_date = last_updated.date()
+            last_updated_naive = last_updated.replace(tzinfo=None) if last_updated.tzinfo else last_updated
+
+            def _date_for_time(t: Optional[time]) -> Optional[datetime]:
+                if t is None:
+                    return None
+                dt = datetime.combine(base_date, t)
+                arrival_date = base_date + timedelta(days=1) if dt < last_updated_naive else base_date
+                return datetime.combine(arrival_date, t)
+
+            realtime_dt = _date_for_time(arrival_time)
+            scheduled_dt = _date_for_time(scheduled_arrival_time)
+
             arrival_items.append(RealtimeArrival(
                 vehicle_id=arrival_data["vehicle_id"],
                 trip=trip_info,
                 stop=stop_info,
-                realtime_arrival_time=arrival_time,
-                scheduled_arrival_time=scheduled_arrival_time,
+                realtime_arrival_time=realtime_dt,
+                scheduled_arrival_time=scheduled_dt,
                 arrival_minutes=arrival_data["arrival_minutes"],
                 delay_minutes=delay_minutes,
                 status=arrival_data["status"],
@@ -310,7 +336,7 @@ class StopService:
 
         arrival_items.sort(key=lambda x: (
             x.arrival_minutes if x.arrival_minutes is not None else float('inf'),
-            x.realtime_arrival_time if x.realtime_arrival_time else time.max
+            x.realtime_arrival_time if x.realtime_arrival_time else datetime.max
         ))
 
         return (arrival_items, len(arrival_items))

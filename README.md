@@ -175,12 +175,12 @@ Once the server is running, interactive API documentation is available at:
 - `GET /api/v1/stcp/stops` - List all stops (paginated, filterable by zone_id)
 - `GET /api/v1/stcp/stops/{stop_id}` - Get stop details
 - `GET /api/v1/stcp/stops/{stop_id}/scheduled` - Get scheduled arrivals for a stop
-  - **Default behavior**: Returns only arrivals for the next 24 hours (Handles service day changes after midnight). `service_id` is ignored.
+  - **Default (`all=false`)**: Returns arrivals in the **next 24 hours**.
+   `service_id` is ignored. `arrival_time` and `departure_time` are returned as **ISO 8601 datetimes with date** (e.g. `2026-02-02T13:19:09.471059`).
+  - **`all=true`**: Returns all scheduled arrivals without date. `arrival_time` and `departure_time` are returned as **time only** (no date).
+  - **Example**: `GET /api/v1/stcp/stops/CNTT2/scheduled?all=false` returns next 24 hours with full datetimes.
 
-  - `all` (optional, default: `false`): If `true`, returns all scheduled arrivals without time filtering.
-  - **Example**: `GET /api/v1/stcp/stops/CNTT2/scheduled?all=false` returns next 24 hours
-
-- `GET /api/v1/stcp/stops/{stop_id}/realtime` - Get real-time arrivals for a stop (fetched on-demand from STCP API, with calculated fields)
+- `GET /api/v1/stcp/stops/{stop_id}/realtime` - Get real-time arrivals for a stop (fetched on-demand from STCP API, with calculated fields). `realtime_arrival_time` and `scheduled_arrival_time` are returned as **ISO 8601 datetimes with date**
 
 ### Routes
 
@@ -281,6 +281,7 @@ While this API uses STCP data as its foundation, some data is calculated or deri
 2. **Route Shapes**: Route shapes are calculated by aggregating trip shapes. The system identifies all trips for a given route and direction, then extracts the associated shape from the GTFS data. This allows routes to have shape representations even when not explicitly defined in the GTFS feed.
 
 3. **Real-time Arrival Fields**: Some fields in real-time arrival responses are calculated or matched rather than coming directly from the STCP API:
+   - **`realtime_arrival_time`** and **`scheduled_arrival_time`**: Returned as ISO 8601 datetimes with date (e.g. `2026-02-02T23:19:09.471059`). The date is inferred from the feed’s `last_updated`; when the time is after midnight (e.g. 00:17) and `last_updated` is late at night (e.g. 23:58), the date is set to the next calendar day.
    - **`stop_sequence`**: Not provided by the STCP API. Calculated by matching the real-time arrival with scheduled arrivals from the GTFS data, finding the closest scheduled arrival time within a 60-second tolerance.
    - **`trip_number`**: Not provided by the STCP API. Derived by matching the real-time arrival with scheduled trip data to identify the corresponding trip number.
 
@@ -289,7 +290,7 @@ While this API uses STCP data as its foundation, some data is calculated or deri
 **Note** that the headsigns used by STCP do not always match the ones used here (as here they are set based on first stop and last stop name). e.g: "CAMPANHÃ - BR. STO.EUGÉNIO (ESCOLA)" is referred to as "CAMPANHÃ - STO.EUGÉNIO" by STCP.
 
 
-5. **Scheduled Arrivals**: While based on GTFS `stop_times.txt` data, scheduled arrivals are calculated by combining stop times with trip information (route, direction, service day) to provide a complete arrival context. 
+5. **Scheduled Arrivals**: While based on GTFS `stop_times.txt` data, scheduled arrivals are calculated by combining stop times with trip information (route, direction, service day) to provide a complete arrival context.
 
 By default, the scheduled arrivals endpoint returns only arrivals within the next 24 hours, automatically handling service day changes after midnight. The 24-hour window mode ignores the `service_id` parameter and automatically determines the correct service days for today and the next day.
 
