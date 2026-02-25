@@ -15,7 +15,7 @@ class TripInfo(BaseModel):
 
 class StopInfo(BaseModel):
     id: str = Field(...)
-    sequence: int = Field(...)
+    sequence: Optional[int] = Field(None)
 
 
 class ScheduledArrival(BaseModel):
