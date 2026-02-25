@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class FIWAREParser:
@@ -54,7 +54,8 @@ class FIWAREParser:
         last_updated = datetime.utcnow()
         if observation_datetime_str:
             try:
-                last_updated = datetime.fromisoformat(observation_datetime_str.replace("Z", "+00:00"))
+                dt = datetime.fromisoformat(observation_datetime_str.replace("Z", "+00:00"))
+                last_updated = dt.astimezone(timezone.utc).replace(tzinfo=None)
             except (ValueError, AttributeError):
                 last_updated = datetime.utcnow()
         

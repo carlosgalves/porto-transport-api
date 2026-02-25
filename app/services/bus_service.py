@@ -30,11 +30,9 @@ async def update_buses():
         return deleted
     
     def _is_observation_stale(obs_dt: datetime) -> bool:
-        cutoff = datetime.now(timezone.utc) - timedelta(minutes=settings.BUS_STALE_MINUTES)
-        if obs_dt.tzinfo is None:
-            obs_dt = obs_dt.replace(tzinfo=timezone.utc)
-        else:
-            obs_dt = obs_dt.astimezone(timezone.utc)
+        cutoff = datetime.utcnow() - timedelta(minutes=settings.BUS_STALE_MINUTES)
+        if obs_dt.tzinfo is not None:
+            obs_dt = obs_dt.astimezone(timezone.utc).replace(tzinfo=None)
         return obs_dt < cutoff
     
     db: Session = SessionLocal()
@@ -79,6 +77,7 @@ async def update_buses():
                 db.add(new_bus)
                 inserted_count += 1
         
+        db.flush()
         deleted_count = _delete_stale_buses(db)
         db.commit()
         
