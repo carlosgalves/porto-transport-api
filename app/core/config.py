@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     
     CORS_ORIGINS: str = "*"
     
+    # Bus position data: delete buses whose FIWARE observationDateTime is older than this many minutes
+    BUS_STALE_MINUTES: int = 10
+    
     class Config:
         env_file = str(_project_root / ".env")
         env_file_encoding = "utf-8"

@@ -250,7 +250,7 @@ All API responses follow a standardized format:
 
 ## Background Tasks
 
-The API runs a background task that updates bus positions every 15 seconds (this value can be changed in the .env) from STCP. Bus data is stored in the database and updated periodically.
+The API runs a background task that updates bus positions every 15 seconds (this value can be changed in the .env) from STCP. Bus data is stored in the database and updated periodically. Positions whose FIWARE `observationDateTime` is older than 10 minutes (configurable via `BUS_STALE_MINUTES`) are not stored and existing records are removed.
 
 **Note**: Real-time arrivals are fetched on-demand from the STCP API and are not stored in the database.
 

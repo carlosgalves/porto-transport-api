@@ -1,8 +1,10 @@
 import asyncio
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from app.core.database import SessionLocal, engine, Base
+from app.core.config import settings
 from app.data_source.fiware.client import FIWAREClient
 from app.data_source.fiware.parser import FIWAREParser
 from app.data_source.gtfs.stcp.models.bus import Bus as BusModel
@@ -22,6 +24,19 @@ async def update_buses():
     
     parsed_buses = FIWAREParser.parse_vehicles(vehicles_data)
     
+    def _delete_stale_buses(session: Session) -> int:
+        cutoff = datetime.utcnow() - timedelta(minutes=settings.BUS_STALE_MINUTES)
+        deleted = session.query(BusModel).filter(BusModel.last_updated < cutoff).delete()
+        return deleted
+    
+    def _is_observation_stale(obs_dt: datetime) -> bool:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=settings.BUS_STALE_MINUTES)
+        if obs_dt.tzinfo is None:
+            obs_dt = obs_dt.replace(tzinfo=timezone.utc)
+        else:
+            obs_dt = obs_dt.astimezone(timezone.utc)
+        return obs_dt < cutoff
+    
     db: Session = SessionLocal()
     try:
         updated_count = 0
@@ -29,10 +44,15 @@ async def update_buses():
         
         for bus_data in parsed_buses:
             vehicle_id = bus_data["vehicle_id"]
+            last_updated = bus_data.get("last_updated")
+            
+            if last_updated and _is_observation_stale(last_updated):
+                existing = db.query(BusModel).filter(BusModel.vehicle_id == vehicle_id).first()
+                if existing:
+                    db.delete(existing)
+                continue
             
             existing_bus = db.query(BusModel).filter(BusModel.vehicle_id == vehicle_id).first()
-            
-            last_updated = bus_data.get("last_updated")
             
             if existing_bus:
                 existing_bus.route_id = bus_data.get("route_id")
@@ -59,6 +79,7 @@ async def update_buses():
                 db.add(new_bus)
                 inserted_count += 1
         
+        deleted_count = _delete_stale_buses(db)
         db.commit()
         
     except Exception as e:
