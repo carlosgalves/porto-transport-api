@@ -308,15 +308,22 @@ class StopService:
                 sequence=stop_sequence
             )
 
-            # Use last_updated date; if time is before last_updated, use next day
+            # Use last_updated date. Only use next day when clearly crossing midnight
+            # (e.g. last_updated 23:50 and arrival 00:10), not when scheduled time is
+            # simply earlier the same day (e.g. 18:21 scheduled, 18:34 last_updated = delayed bus).
             base_date = last_updated.date()
             last_updated_naive = last_updated.replace(tzinfo=None) if last_updated.tzinfo else last_updated
+            last_updated_time = last_updated_naive.time()
 
             def _date_for_time(t: Optional[time]) -> Optional[datetime]:
                 if t is None:
                     return None
                 dt = datetime.combine(base_date, t)
-                arrival_date = base_date + timedelta(days=1) if dt < last_updated_naive else base_date
+                # Midnight wrap: last_updated is late night and time is early morning -> next day
+                if last_updated_time.hour >= 22 and t.hour < 6:
+                    arrival_date = base_date + timedelta(days=1)
+                else:
+                    arrival_date = base_date
                 return datetime.combine(arrival_date, t)
 
             realtime_dt = _date_for_time(arrival_time)
