@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from app.core.config import settings
 
-_redis_client: object
+_redis_client: Optional[object] = None
 
 
 async def get_redis() -> "redis.asyncio.Redis":
