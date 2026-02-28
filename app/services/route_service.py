@@ -10,6 +10,7 @@ from app.data_source.gtfs.stcp.models.shape import Shape as ShapeModel
 from app.data_source.gtfs.stcp.models.trip import Trip as TripModel
 from app.data_source.gtfs.stcp.models.trip_stop import TripStop as TripStopModel
 from app.api.schemas.route import Route, RouteDirectionItem, RouteStop, RouteStopRouteInfo, RouteStopStopInfo
+from app.cache import get_routes_cached, set_routes_cached
 from app.api.schemas.route_direction import RouteDirection
 from app.api.schemas.shape import RouteShape, ShapePoint
 from app.api.schemas.shared import Coordinates
@@ -94,32 +95,26 @@ class RouteService:
         ]
 
     @staticmethod
-    def get_routes(
-        db: Session, 
+    def _get_routes_full(
+        db: Session,
         service_ids: Optional[List[str]] = None,
-        page: int = 0,
-        size: int = 100
+        db_routes: Optional[List[RouteModel]] = None,
     ) -> Tuple[List[Route], int]:
+        if db_routes is None:
+            query = db.query(RouteModel)
+            if service_ids:
+                route_ids = [
+                    rd.route_id for rd in db.query(RouteDirectionModel.route_id).filter(
+                        RouteDirectionModel.service_id.in_(service_ids)
+                    ).distinct().all()
+                ]
+                query = query.filter(RouteModel.id.in_(route_ids))
+            db_routes = query.all()
+            db_routes.sort(key=_route_sort_key)
 
-        query = db.query(RouteModel)
-        if service_ids:
-            route_ids = [
-                rd.route_id for rd in db.query(RouteDirectionModel.route_id).filter(
-                    RouteDirectionModel.service_id.in_(service_ids)
-                ).distinct().all()
-            ]
-            query = query.filter(RouteModel.id.in_(route_ids))
-        
-        all_db_routes = query.all()
-        all_db_routes.sort(key=_route_sort_key)
-        total = len(all_db_routes)
-        skip = page * size
-        db_routes = all_db_routes[skip : skip + size]
-        
         routes = [RouteService._model_to_schema(route, db=db, include_service_days=True) for route in db_routes]
-
         if db_routes:
-            page_route_ids = [str(r.id) for r in db_routes]
+            route_ids = [str(r.id) for r in db_routes]
             dir_query = (
                 db.query(
                     RouteStopModel.route_id,
@@ -127,7 +122,7 @@ class RouteService:
                     RouteStopModel.headsign,
                     RouteStopModel.service_id,
                 )
-                .filter(RouteStopModel.route_id.in_(page_route_ids))
+                .filter(RouteStopModel.route_id.in_(route_ids))
                 .distinct()
             )
             if service_ids:
@@ -152,8 +147,25 @@ class RouteService:
         else:
             for route in routes:
                 route.directions = []
+        return routes, len(routes)
 
-        return routes, total
+    @staticmethod
+    async def get_routes(
+        db: Session, 
+        service_ids: Optional[List[str]] = None,
+        page: int = 0,
+        size: int = 100
+    ) -> Tuple[List[Route], int]:
+        cached = await get_routes_cached(service_ids)
+        if cached is not None:
+            all_routes, total = cached
+            skip = page * size
+            return all_routes[skip : skip + size], total
+
+        all_routes, total = RouteService._get_routes_full(db, service_ids)
+        await set_routes_cached(service_ids, all_routes)
+        skip = page * size
+        return all_routes[skip : skip + size], total
     
     @staticmethod
     def _route_direction_model_to_schema(db_route_direction: RouteDirectionModel) -> RouteDirection:

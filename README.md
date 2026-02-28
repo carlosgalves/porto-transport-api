@@ -260,7 +260,7 @@ The API runs a background task that updates bus positions every 15 seconds (this
 - **FastAPI**: Modern, fast web framework for building APIs with Python
 - **Pydantic**: Data validation and serialization using Python type annotations
 - **SQLite**: Lightweight database storage
-- **Redis**: Cache for realtime arrivals
+- **Redis**: Cache for realtime arrivals, stops, and routes
 - **httpx**: Async HTTP client for external API calls
 - **Python-dotenv**: Environment variable management
 

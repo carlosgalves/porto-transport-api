@@ -16,7 +16,7 @@ router = APIRouter(prefix="/routes", tags=["Routes"])
 
 
 @router.get("/", response_model=RouteResponse)
-def get_routes(
+async def get_routes(
     request: Request,
     service_id: Optional[str] = Query(None, description="Filter routes by comma-separated service IDs."),
     page: int = Query(0, ge=0, description="Page number (0-indexed)"),
@@ -31,7 +31,7 @@ def get_routes(
     if service_id:
         service_ids = [sid.strip() for sid in service_id.split(",") if sid.strip()]
     
-    routes, total = RouteService.get_routes(
+    routes, total = await RouteService.get_routes(
         db=db,
         service_ids=service_ids,
         page=page,

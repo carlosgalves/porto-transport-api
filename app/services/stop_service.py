@@ -7,7 +7,12 @@ from app.data_source.gtfs.stcp.models.scheduled_arrival import ScheduledArrival 
 from app.data_source.gtfs.stcp.models.trip import Trip as TripModel
 from app.data_source.stcp.client import STCPClient
 from app.data_source.stcp.parser import STCPParser
-from app.services.realtime_cache import get_realtime_arrivals_cached, set_realtime_arrivals_cached
+from app.cache import (
+    get_realtime_arrivals_cached,
+    set_realtime_arrivals_cached,
+    get_stops_cached,
+    set_stops_cached,
+)
 from app.api.schemas.stop import Stop
 from app.api.schemas.shared import Coordinates
 from app.api.schemas.arrival import (
@@ -38,29 +43,32 @@ class StopService:
         return None
     
     @staticmethod
-    def get_stops(
+    async def get_stops(
         db: Session, 
         zone_id: Optional[str] = None,
         page: int = 0,
         size: Optional[int] = 100
     ) -> Tuple[List[Stop], int]:
+        cached = await get_stops_cached(zone_id)
+        if cached is not None:
+            all_stops, total = cached
+            if size is None:
+                return all_stops, total
+            skip = page * size
+            return all_stops[skip : skip + size], total
 
         query = db.query(StopModel)
-        
         if zone_id:
             query = query.filter(StopModel.zone_id == zone_id)
-        
-        total = query.count()
-        
-        # If no size is provided, return all stops without pagination
-        if size is None:
-            db_stops = query.all()
-        else:
-            skip = page * size
-            db_stops = query.offset(skip).limit(size).all()
-        
+        db_stops = query.all()
         stops = [StopService._model_to_schema(stop) for stop in db_stops]
-        return stops, total
+        await set_stops_cached(zone_id, stops)
+        total = len(stops)
+
+        if size is None:
+            return stops, total
+        skip = page * size
+        return stops[skip : skip + size], total
     
     @staticmethod
     def get_scheduled_arrivals(

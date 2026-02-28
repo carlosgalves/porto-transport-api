@@ -16,7 +16,7 @@ from app.services.service_day_service import ServiceDayService
 router = APIRouter(prefix="/stops", tags=["Stops"])
 
 @router.get("/", response_model=StopResponse)
-def get_stops(
+async def get_stops(
     request: Request,
     zone_id: Optional[str] = Query(None, description="Filter stops by zone_id"),
     page: int = Query(0, ge=0, description="Page number"),
@@ -28,7 +28,7 @@ def get_stops(
     Get all stops.
     If size is not provided, returns all stops without pagination.
     """
-    stops, total = StopService.get_stops(db=db, zone_id=zone_id, page=page, size=size)
+    stops, total = await StopService.get_stops(db=db, zone_id=zone_id, page=page, size=size)
     
     effective_size = size if size is not None else total
     effective_page = 0 if size is None else page
