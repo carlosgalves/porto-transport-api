@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     
     # Bus position data: delete buses whose FIWARE observationDateTime is older than this many minutes
     BUS_STALE_MINUTES: int = 10
+
+    # Redis (realtime arrivals cache)
+    REDIS_URL: str = ""
+    REDIS_REALTIME_TTL: int = 90
     
     class Config:
         env_file = str(_project_root / ".env")

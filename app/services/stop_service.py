@@ -7,6 +7,7 @@ from app.data_source.gtfs.stcp.models.scheduled_arrival import ScheduledArrival 
 from app.data_source.gtfs.stcp.models.trip import Trip as TripModel
 from app.data_source.stcp.client import STCPClient
 from app.data_source.stcp.parser import STCPParser
+from app.services.realtime_cache import get_realtime_arrivals_cached, set_realtime_arrivals_cached
 from app.api.schemas.stop import Stop
 from app.api.schemas.shared import Coordinates
 from app.api.schemas.arrival import (
@@ -253,9 +254,15 @@ class StopService:
         if not stop:
             return None
 
+        # Try cache
+        cached = await get_realtime_arrivals_cached(stop_id)
+        if cached is not None:
+            return cached
+
         # Fetch real-time data from API
         stop_realtime_data = await STCPClient.fetch_stop_realtime(stop_id)
         if not stop_realtime_data:
+            await set_realtime_arrivals_cached(stop_id, [])
             return ([], 0)
 
         parsed_arrivals = STCPParser.parse_stop_realtime(stop_realtime_data)
@@ -346,4 +353,5 @@ class StopService:
             x.realtime_arrival_time if x.realtime_arrival_time else datetime.max
         ))
 
+        await set_realtime_arrivals_cached(stop_id, arrival_items)
         return (arrival_items, len(arrival_items))

@@ -1,6 +1,7 @@
 fastapi[standard]
 sqlalchemy
 httpx
+redis>=5.0
 pydantic
 pydantic-settings
 python-dotenv

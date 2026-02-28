@@ -58,6 +58,7 @@ The aim of this API is to provide better usability and more data than the source
 
 - Python 3.9 or higher
 - pip
+- Redis
 
 ### Setup
 
@@ -252,13 +253,14 @@ All API responses follow a standardized format:
 
 The API runs a background task that updates bus positions every 15 seconds (this value can be changed in the .env) from STCP. Bus data is stored in the database and updated periodically. Positions whose FIWARE `observationDateTime` is older than 10 minutes (configurable via `BUS_STALE_MINUTES`) are not stored and existing records are removed.
 
-**Note**: Real-time arrivals are fetched on-demand from the STCP API and are not stored in the database.
+**Note**: Real-time arrivals are fetched on-demand from the STCP API and cached in Redis per stop (90-second TTL by default).
 
 ## Technologies
 
 - **FastAPI**: Modern, fast web framework for building APIs with Python
 - **Pydantic**: Data validation and serialization using Python type annotations
 - **SQLite**: Lightweight database storage
+- **Redis**: Cache for realtime arrivals
 - **httpx**: Async HTTP client for external API calls
 - **Python-dotenv**: Environment variable management
 

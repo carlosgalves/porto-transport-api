@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from app.api.endpoints import stops, service_days, routes, trips, buses, auth
 from app.data_source.gtfs.stcp.models import *
 from app.services.bus_service import run_periodic_bus_updates
+from app.core.redis import get_redis, close_redis
 from app.api.utils.error_handler import (
     http_exception_handler,
     validation_exception_handler,
@@ -16,8 +17,10 @@ from app.core.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start background task for periodic bus updates
     import asyncio
+    # Verify Redis connection
+    await get_redis()
+    # Start background task for periodic bus updates
     update_task = asyncio.create_task(run_periodic_bus_updates(interval_seconds=15))
     yield
     update_task.cancel()
@@ -25,6 +28,7 @@ async def lifespan(app: FastAPI):
         await update_task
     except asyncio.CancelledError:
         pass
+    await close_redis()
 
 
 app = FastAPI(
