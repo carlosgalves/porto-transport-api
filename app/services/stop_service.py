@@ -1,7 +1,9 @@
+import asyncio
 from typing import Dict, List, Optional, Tuple
 from datetime import date, datetime, time, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
+from app.core.database import SessionLocal
 from app.data_source.gtfs.stcp.models.stop import Stop as StopModel
 from app.data_source.gtfs.stcp.models.scheduled_arrival import ScheduledArrival as ScheduledArrivalModel
 from app.data_source.gtfs.stcp.models.trip import Trip as TripModel
@@ -258,15 +260,18 @@ class StopService:
         return None
 
     @staticmethod
-    async def get_realtime_arrivals_response(db: Session, stop_id: str) -> Optional[Tuple[List[RealtimeArrival], int]]:
+    async def get_realtime_arrivals_response(
+        db: Session, stop_id: str, *, force_refresh: bool = False
+    ) -> Optional[Tuple[List[RealtimeArrival], int]]:
         stop = db.query(StopModel).filter(StopModel.id == stop_id).first()
         if not stop:
             return None
 
-        # Try cache
-        cached = await get_realtime_arrivals_cached(stop_id)
-        if cached is not None:
-            return cached
+        # Try cache (skip when force_refresh, e.g. for background refresh of all stops)
+        if not force_refresh:
+            cached = await get_realtime_arrivals_cached(stop_id)
+            if cached is not None:
+                return cached
 
         # Fetch real-time data from API
         stop_realtime_data = await STCPClient.fetch_stop_realtime(stop_id)
