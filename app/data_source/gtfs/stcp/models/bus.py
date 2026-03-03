@@ -10,6 +10,7 @@ class Bus(Base):
     route_id = Column(String, nullable=False, index=True)
     direction_id = Column(Integer, nullable=False)
     service_id = Column(String, nullable=False, index=True)
+    raw_trip_id = Column(String, nullable=True, index=True)
     lat = Column(Float, nullable=False)
     lon = Column(Float, nullable=False)
     heading = Column(Float, nullable=True)

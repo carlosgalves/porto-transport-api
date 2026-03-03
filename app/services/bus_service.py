@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from app.core.database import SessionLocal, engine, Base
@@ -11,6 +11,7 @@ from app.data_source.gtfs.stcp.models.bus import Bus as BusModel
 from app.data_source.gtfs.stcp.models.trip import Trip as TripModel
 from app.data_source.gtfs.stcp.models.route_direction import RouteDirection as RouteDirectionModel
 from app.api.schemas.bus import Bus, BusTrip, BusRoute, BusCoordinates
+from app.cache import get_trip_info_for_raw_trip_ids, get_trip_info_by_raw_trip_id
 
 
 async def update_buses():
@@ -56,6 +57,7 @@ async def update_buses():
                 existing_bus.route_id = bus_data.get("route_id")
                 existing_bus.direction_id = bus_data.get("direction_id")
                 existing_bus.service_id = bus_data.get("service_id")
+                existing_bus.raw_trip_id = bus_data.get("raw_trip_id")
                 existing_bus.lat = bus_data["lat"]
                 existing_bus.lon = bus_data["lon"]
                 existing_bus.heading = bus_data.get("heading")
@@ -68,6 +70,7 @@ async def update_buses():
                     route_id=bus_data.get("route_id"),
                     direction_id=bus_data.get("direction_id"),
                     service_id=bus_data.get("service_id"),
+                    raw_trip_id=bus_data.get("raw_trip_id"),
                     lat=bus_data["lat"],
                     lon=bus_data["lon"],
                     heading=bus_data.get("heading"),
@@ -102,30 +105,44 @@ async def run_periodic_bus_updates(interval_seconds: int = 15):
 class BusService:
     
     @staticmethod
-    def _model_to_schema(db_bus: BusModel, db: Session) -> Bus:
+    def _model_to_schema(
+        db_bus: BusModel,
+        db: Session,
+        trip_info_by_raw_trip_id: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> Bus:
         trip = None
         route = None
+        trip_info_by_raw_trip_id = trip_info_by_raw_trip_id or {}
 
-        # FIWARE does not return the trip_number
-        
-        # get trip from route_id, direction_id, and service_id
+        # Trip: use trip_id and trip_number from realtime arrivals cache when available
         if db_bus.route_id and db_bus.direction_id is not None and db_bus.service_id:
-            db_trip = db.query(TripModel).filter(
-                and_(
-                    TripModel.route_id == db_bus.route_id,
-                    TripModel.direction_id == db_bus.direction_id,
-                    TripModel.service_id == db_bus.service_id
-                )
-            ).first()
-            
+            trip_id_base = f"{db_bus.route_id}_{db_bus.direction_id}_{db_bus.service_id}"
+            trip_id = trip_id_base
+            trip_number = None
+            # Prefer trip_id and trip_number from realtime arrivals (same as /stops/{id}/realtime)
+            if db_bus.raw_trip_id and db_bus.raw_trip_id in trip_info_by_raw_trip_id:
+                cached = trip_info_by_raw_trip_id[db_bus.raw_trip_id]
+                if cached.get("trip_id"):
+                    trip_id = cached["trip_id"]
+                    trip_number = cached.get("trip_number")
+
+            # Headsign from the matching trip by trip_id when available
+            db_trip = db.query(TripModel).filter(TripModel.trip_id == trip_id).first()
+            if db_trip is None:
+                db_trip = db.query(TripModel).filter(
+                    and_(
+                        TripModel.route_id == db_bus.route_id,
+                        TripModel.direction_id == db_bus.direction_id,
+                        TripModel.service_id == db_bus.service_id
+                    )
+                ).first()
+
             if db_trip:
-                # trip_id: route_id_direction_id_service_id
-                trip_id_without_number = f"{db_bus.route_id}_{db_bus.direction_id}_{db_bus.service_id}"
-                
                 trip = BusTrip(
-                    trip_id=trip_id_without_number,
+                    trip_id=trip_id,
                     service_id=db_trip.service_id,
-                    trip_number=None,
+                    trip_number=trip_number,
+                    raw_trip_id=db_bus.raw_trip_id,
                     headsign=db_trip.headsign,
                     wheelchair_accessible=db_trip.wheelchair_accessible
                 )
@@ -168,14 +185,13 @@ class BusService:
         )
     
     @staticmethod
-    def get_buses(
+    async def get_buses(
         db: Session,
         route_id: Optional[str] = None,
         direction_id: Optional[int] = None,
         page: int = 0,
         size: int = 100
     ) -> Tuple[List[Bus], int]:
-
         query = db.query(BusModel)
         
         filters = []
@@ -184,10 +200,8 @@ class BusService:
             filters.append(BusModel.route_id == route_id)
         
         if direction_id is not None:
-            # Only apply if route_id is also provided
             if route_id:
                 filters.append(BusModel.direction_id == direction_id)
-            # If route_id is not provided, direction_id is ignored
         
         if filters:
             query = query.filter(and_(*filters))
@@ -197,14 +211,27 @@ class BusService:
         skip = page * size
         db_buses = query.offset(skip).limit(size).all()
         
-        buses = [BusService._model_to_schema(bus, db) for bus in db_buses]
+        raw_trip_ids = [b.raw_trip_id for b in db_buses if b.raw_trip_id]
+        trip_info_by_raw_trip_id = await get_trip_info_for_raw_trip_ids(raw_trip_ids)
+        
+        buses = [
+            BusService._model_to_schema(bus, db, trip_info_by_raw_trip_id)
+            for bus in db_buses
+        ]
         
         return buses, total
     
     @staticmethod
-    def get_bus_by_id(db: Session, vehicle_id: str) -> Optional[Bus]:
+    async def get_bus_by_id(db: Session, vehicle_id: str) -> Optional[Bus]:
         db_bus = db.query(BusModel).filter(BusModel.vehicle_id == vehicle_id).first()
         
-        if db_bus:
-            return BusService._model_to_schema(db_bus, db)
-        return None
+        if not db_bus:
+            return None
+        
+        trip_info_by_raw_trip_id = {}
+        if db_bus.raw_trip_id:
+            info = await get_trip_info_by_raw_trip_id(db_bus.raw_trip_id)
+            if info:
+                trip_info_by_raw_trip_id[db_bus.raw_trip_id] = info
+        
+        return BusService._model_to_schema(db_bus, db, trip_info_by_raw_trip_id)

@@ -11,6 +11,7 @@ class TripInfo(BaseModel):
     service_id: str = Field(...)
     number: str = Field(...)
     headsign: str = Field(...)
+    raw_trip_id: Optional[str] = Field(None)
 
 
 class StopInfo(BaseModel):

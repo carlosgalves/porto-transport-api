@@ -64,6 +64,7 @@ class FIWAREParser:
             "route_id": route_id,
             "direction_id": direction_id,
             "service_id": service_id,
+            "raw_trip_id": nr_viagem,
             "lat": lat,
             "lon": lon,
             "heading": heading,
@@ -80,3 +81,16 @@ class FIWAREParser:
             if parsed:
                 parsed_vehicles.append(parsed)
         return parsed_vehicles
+
+    @staticmethod
+    def build_nr_viagem_to_vehicle_id(vehicles_data: List[Dict[str, Any]]) -> Dict[str, str]:
+        result: Dict[str, str] = {}
+        for vehicle in vehicles_data:
+            vehicle_id = vehicle.get("fleetVehicleId", {}).get("value")
+            if not vehicle_id:
+                continue
+            annotations = vehicle.get("annotations", {}).get("value", [])
+            nr_viagem = FIWAREParser.extract_annotation_value(annotations, "stcp:nr_viagem:")
+            if nr_viagem:
+                result[nr_viagem] = vehicle_id
+        return result

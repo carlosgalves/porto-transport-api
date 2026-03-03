@@ -8,6 +8,7 @@ class BusTrip(BaseModel):
     trip_id: str = Field(...)
     service_id: str = Field(...)
     trip_number: Optional[str] = Field(None)
+    raw_trip_id: Optional[str] = Field(None)
     headsign: str = Field(...)
     wheelchair_accessible: bool = Field(...)
 

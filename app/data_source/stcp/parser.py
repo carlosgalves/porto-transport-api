@@ -109,12 +109,13 @@ class STCPParser:
         return {
             "vehicle_id": vehicle_id,
             "stop_id": stop_id,
-            "trip_number": "",  # trip_number is null from the API | TODO: Fill trip_number
+            "raw_trip_id": trip_id,
+            "trip_number": "",  # not in source API response; filled in stop_service from scheduled arrival match
             "route_id": trip_info["route_id"],
             "direction_id": trip_info["direction_id"],
             "service_id": trip_info["service_id"],
             "trip_headsign": trip_headsign,
-            "stop_sequence": None,  # Not available in API response
+            "stop_sequence": None,  # Not available in source API response
             "arrival_time": arrival_time,
             "arrival_minutes": arrival_minutes,
             "delay_minutes": delay_minutes,

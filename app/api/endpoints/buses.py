@@ -13,7 +13,7 @@ router = APIRouter(prefix="/buses", tags=["Buses"])
 
 
 @router.get("/", response_model=BusResponse)
-def get_buses(
+async def get_buses(
     request: Request,
     route_id: Optional[str] = Query(None, description="Filter buses by route_id"),
     direction_id: Optional[int] = Query(None, description="Filter buses by direction_id (only works when route_id is provided)"),
@@ -25,7 +25,7 @@ def get_buses(
     """
     Get all buses.
     """
-    buses, total = BusService.get_buses(
+    buses, total = await BusService.get_buses(
         db=db,
         route_id=route_id,
         direction_id=direction_id if route_id else None,
@@ -37,7 +37,7 @@ def get_buses(
 
 
 @router.get("/{vehicle_id}", response_model=SingleResponse[Bus])
-def get_bus_by_id(
+async def get_bus_by_id(
     request: Request,
     vehicle_id: str,
     db: Session = Depends(get_db),
@@ -46,7 +46,7 @@ def get_bus_by_id(
     """
     Get a specific bus by its vehicle_id.
     """
-    bus = BusService.get_bus_by_id(db=db, vehicle_id=vehicle_id)
+    bus = await BusService.get_bus_by_id(db=db, vehicle_id=vehicle_id)
     if bus is None:
         raise HTTPException(status_code=404, detail="Bus not found")
     
