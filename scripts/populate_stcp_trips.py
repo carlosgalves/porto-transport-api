@@ -20,6 +20,7 @@ def load_trips():
     print(f"Loading trips from {settings.GTFS_DATA_DIR}/trips.txt...")
     raw_trips = loader._load_csv_file("trips.txt")
     normalized_trips = GTFSNormalizer.normalize_trips_for_table(raw_trips)
+    unique_trips = list({trip["trip_id"]: trip for trip in normalized_trips}.values())
     
     db: Session = SessionLocal()
     try:
@@ -36,7 +37,7 @@ def load_trips():
                 headsign=trip["headsign"],
                 wheelchair_accessible=trip["wheelchair_accessible"]
             )
-            for trip in normalized_trips
+            for trip in unique_trips
         ]
         
         db.bulk_save_objects(db_trips)

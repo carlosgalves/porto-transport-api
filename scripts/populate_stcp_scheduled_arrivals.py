@@ -18,6 +18,10 @@ def load_scheduled_arrivals():
     
     print(f"Loading stop_times from {settings.GTFS_DATA_DIR}/stop_times.txt...")
     normalized_arrivals = loader.load_stop_times()
+    unique_arrivals = list({
+        (item["trip_id"], item["stop_id"], item["stop_sequence"]): item
+        for item in normalized_arrivals
+    }.values())
     
     db: Session = SessionLocal()
     try:
@@ -32,7 +36,7 @@ def load_scheduled_arrivals():
                 arrival_time=arrival["arrival_time"],
                 departure_time=arrival["departure_time"]
             )
-            for arrival in normalized_arrivals
+            for arrival in unique_arrivals
         ]
         
         db.bulk_save_objects(db_arrivals)

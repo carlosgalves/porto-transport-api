@@ -18,6 +18,10 @@ def load_trip_stops():
     
     print(f"Loading stop_times from {settings.GTFS_DATA_DIR}/stop_times.txt...")
     raw_stop_times = loader.load_stop_times()
+    unique_stop_times = list({
+        (item["trip_id"], item["stop_id"], item["stop_sequence"]): item
+        for item in raw_stop_times
+    }.values())
     
     db: Session = SessionLocal()
     try:
@@ -30,7 +34,7 @@ def load_trip_stops():
                 stop_id=stop_time["stop_id"],
                 sequence=stop_time["stop_sequence"]
             )
-            for stop_time in raw_stop_times
+            for stop_time in unique_stop_times
         ]
         
         db.bulk_save_objects(trip_stops_list)

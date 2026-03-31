@@ -7,6 +7,7 @@ from app.core.database import SessionLocal, engine, Base
 from app.core.config import settings
 from app.data_source.fiware.client import FIWAREClient
 from app.data_source.fiware.parser import FIWAREParser
+from app.data_source.stcp.parser import STCPParser
 from app.data_source.gtfs.stcp.models.bus import Bus as BusModel
 from app.data_source.gtfs.stcp.models.trip import Trip as TripModel
 from app.data_source.gtfs.stcp.models.route_direction import RouteDirection as RouteDirectionModel
@@ -121,9 +122,17 @@ class BusService:
         route = None
         trip_info_by_raw_trip_id = trip_info_by_raw_trip_id or {}
 
+        resolved_service_id = db_bus.service_id
+        if not resolved_service_id and db_bus.raw_trip_id:
+            try:
+                parsed = STCPParser.parse_trip_id(db_bus.raw_trip_id)
+                resolved_service_id = parsed.get("service_id") or ""
+            except Exception:
+                resolved_service_id = ""
+
         # Trip: use trip_id and trip_number from realtime arrivals cache when available
-        if db_bus.route_id and db_bus.direction_id is not None and db_bus.service_id:
-            trip_id_base = f"{db_bus.route_id}_{db_bus.direction_id}_{db_bus.service_id}"
+        if db_bus.route_id and db_bus.direction_id is not None and resolved_service_id:
+            trip_id_base = f"{db_bus.route_id}_{db_bus.direction_id}_{resolved_service_id}"
             trip_id = trip_id_base
             trip_number = None
             # Prefer trip_id and trip_number from realtime arrivals (same as /stops/{id}/realtime)
@@ -133,6 +142,13 @@ class BusService:
                     trip_id = cached["trip_id"]
                     trip_number = cached.get("trip_number")
 
+            # Fallback: extract trip number from raw_trip_id token (e.g. ...|T11|...)
+            if not trip_number and db_bus.raw_trip_id:
+                for part in db_bus.raw_trip_id.split("|"):
+                    if part.startswith("T") and len(part) > 1:
+                        trip_number = part[1:]
+                        break
+
             # Headsign from the matching trip by trip_id when available
             db_trip = db.query(TripModel).filter(TripModel.trip_id == trip_id).first()
             if db_trip is None:
@@ -140,7 +156,7 @@ class BusService:
                     and_(
                         TripModel.route_id == db_bus.route_id,
                         TripModel.direction_id == db_bus.direction_id,
-                        TripModel.service_id == db_bus.service_id
+                        TripModel.service_id == resolved_service_id
                     )
                 ).first()
 
@@ -162,9 +178,9 @@ class BusService:
                 )
             )
             
-            if db_bus.service_id:
+            if resolved_service_id:
                 route_direction_query = route_direction_query.filter(
-                    RouteDirectionModel.service_id == db_bus.service_id
+                    RouteDirectionModel.service_id == resolved_service_id
                 )
             
             db_route_direction = route_direction_query.first()

@@ -18,6 +18,7 @@ def load_trip_shapes():
     
     print(f"Loading trip_shapes from {settings.GTFS_DATA_DIR}/trips.txt...")
     trip_shapes_data = loader.load_trip_shapes()
+    unique_trip_shapes = list({item["trip_id"]: item for item in trip_shapes_data}.values())
     
     db: Session = SessionLocal()
     try:
@@ -29,7 +30,7 @@ def load_trip_shapes():
                 trip_id=trip_shape["trip_id"],
                 shape_id=trip_shape["shape_id"]
             )
-            for trip_shape in trip_shapes_data
+            for trip_shape in unique_trip_shapes
         ]
         
         db.bulk_save_objects(db_trip_shapes)

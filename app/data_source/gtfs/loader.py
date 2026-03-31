@@ -1,4 +1,6 @@
 import csv
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Callable, Optional
 import logging
@@ -66,8 +68,58 @@ class GTFSLoader:
         return self._load_and_normalize("stops.txt", self.normalizer.normalize_stops)
     
     def load_calendar(self) -> List[Dict[str, Any]]:
+        calendar_path = self.data_dir / "calendar.txt"
+        if calendar_path.exists():
+            return self._load_and_normalize("calendar.txt", self.normalizer.normalize_calendars)
 
-        return self._load_and_normalize("calendar.txt", self.normalizer.normalize_calendars)
+        # Fallback for feeds that only provide calendar_dates.txt
+        calendar_dates_path = self.data_dir / "calendar_dates.txt"
+        if not calendar_dates_path.exists():
+            raise GTFSFileNotFoundError(
+                f"Neither calendar.txt nor calendar_dates.txt found in {self.data_dir}"
+            )
+
+        raw_dates = self._load_csv_file("calendar_dates.txt")
+        by_service: Dict[str, set[int]] = {}
+        dates_seen: Dict[str, List[Any]] = {}
+
+        for row in raw_dates:
+            if str(row.get("exception_type", "")).strip() != "1":
+                continue
+            service_id = str(row.get("service_id", "")).strip()
+            date_str = str(row.get("date", "")).strip()
+            if not service_id or not date_str:
+                continue
+            d = datetime.strptime(date_str, "%Y%m%d").date()
+            if service_id not in by_service:
+                by_service[service_id] = set()
+                dates_seen[service_id] = []
+            by_service[service_id].add(d.weekday())
+            dates_seen[service_id].append(d)
+
+        normalized: List[Dict[str, Any]] = []
+        for raw_service_id, weekdays in by_service.items():
+            try:
+                service_code, service_name, service_type = self.normalizer._resolve_service_mapping(raw_service_id)
+            except ValueError:
+                # Skip unknown service ids instead of crashing full import.
+                continue
+            all_dates = dates_seen[raw_service_id]
+            day_map = [1 if idx in weekdays else 0 for idx in range(7)]
+            normalized.append(
+                {
+                    "service_id": service_code,
+                    "service_name": service_name,
+                    "service_type": service_type,
+                    "day_map": json.dumps(day_map),
+                    "start_date": min(all_dates),
+                    "end_date": max(all_dates),
+                }
+            )
+
+        if not normalized:
+            raise GTFSLoaderError("Could not derive service days from calendar_dates.txt")
+        return normalized
     
     def load_routes(self) -> List[Dict[str, Any]]:
         return self._load_and_normalize("routes.txt", self.normalizer.normalize_routes)
@@ -85,7 +137,7 @@ class GTFSLoader:
         return self._load_and_normalize("stop_times.txt", self.normalizer.normalize_stop_times)
     
     def validate_gtfs_files(self) -> bool:
-        required_files = ["agency.txt", "calendar.txt", "routes.txt", "shapes.txt", "stop_times.txt", "stops.txt", "trips.txt"]
+        required_files = ["agency.txt", "routes.txt", "shapes.txt", "stop_times.txt", "stops.txt", "trips.txt"]
         missing_files = []
         
         for filename in required_files:
@@ -97,6 +149,11 @@ class GTFSLoader:
             raise GTFSFileNotFoundError(
                 f"Missing required GTFS files: {', '.join(missing_files)}"
             )
+
+        has_calendar = (self.data_dir / "calendar.txt").exists()
+        has_calendar_dates = (self.data_dir / "calendar_dates.txt").exists()
+        if not has_calendar and not has_calendar_dates:
+            raise GTFSFileNotFoundError("Missing calendar.txt and calendar_dates.txt")
         
         logger.info("GTFS feed validation passed")
         return True

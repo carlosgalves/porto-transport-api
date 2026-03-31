@@ -3,6 +3,12 @@ from datetime import datetime, timezone
 
 
 class FIWAREParser:
+    SERVICE_TYPE_MAP = {
+        1: "U",
+        2: "S",
+        3: "D",
+        6: "U",
+    }
     
     @staticmethod
     def extract_annotation_value(annotations: List[str], prefix: str) -> Optional[str]:
@@ -24,7 +30,7 @@ class FIWAREParser:
 
         nr_viagem = FIWAREParser.extract_annotation_value(annotations, "stcp:nr_viagem:")
         
-        service_id = None
+        service_id = ""
         
         if nr_viagem:
             parts = nr_viagem.split("|")
@@ -32,12 +38,7 @@ class FIWAREParser:
                 if part.startswith("D") and len(part) > 1:
                     try:
                         service_type = int(part[1:])  # Extract number after 'D'
-                        if service_type == 1:
-                            service_id = "U"
-                        elif service_type == 2:
-                            service_id = "S"
-                        elif service_type == 3:
-                            service_id = "D"
+                        service_id = FIWAREParser.SERVICE_TYPE_MAP.get(service_type, "")
                     except ValueError:
                         pass
                     break

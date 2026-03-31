@@ -32,6 +32,7 @@ def load_route_stops():
         ).distinct().all()
 
         route_stops_list = []
+        unique_route_stops = {}
 
         for route_id, direction_id in route_directions:
             trips = db.query(
@@ -79,8 +80,9 @@ def load_route_stops():
 
             for (service_id, _), (headsign, ordered) in patterns.items():
                 for stop_id, stop_sequence in ordered:
-                    route_stops_list.append(
-                        RouteStop(
+                    key = (route_id, direction_id, headsign, service_id, stop_sequence)
+                    if key not in unique_route_stops:
+                        unique_route_stops[key] = RouteStop(
                             route_id=route_id,
                             direction_id=direction_id,
                             headsign=headsign,
@@ -88,7 +90,8 @@ def load_route_stops():
                             stop_sequence=stop_sequence,
                             stop_id=stop_id,
                         )
-                    )
+
+        route_stops_list = list(unique_route_stops.values())
 
         db.bulk_save_objects(route_stops_list)
         db.commit()
