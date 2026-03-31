@@ -3,7 +3,12 @@ from datetime import datetime, time
 
 
 class STCPParser:
-    SERVICE_TYPE_MAP = {1: "U", 2: "S", 3: "D"}
+    SERVICE_TYPE_MAP = {
+        1: "U",
+        2: "S",
+        3: "D",
+        6: "U",  # temporário
+    }
     
     @staticmethod
     def parse_trip_id(trip_id: str) -> Dict[str, Any]:
