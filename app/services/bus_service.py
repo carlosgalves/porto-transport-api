@@ -52,11 +52,18 @@ async def update_buses():
                 continue
             
             existing_bus = db.query(BusModel).filter(BusModel.vehicle_id == vehicle_id).first()
+            service_id = bus_data.get("service_id") or ""
+            direction_id = bus_data.get("direction_id")
+            if direction_id is not None and not isinstance(direction_id, int):
+                try:
+                    direction_id = int(direction_id)
+                except (TypeError, ValueError):
+                    direction_id = 0
             
             if existing_bus:
-                existing_bus.route_id = bus_data.get("route_id")
-                existing_bus.direction_id = bus_data.get("direction_id")
-                existing_bus.service_id = bus_data.get("service_id")
+                existing_bus.route_id = bus_data.get("route_id") or ""
+                existing_bus.direction_id = direction_id if direction_id is not None else 0
+                existing_bus.service_id = service_id
                 existing_bus.raw_trip_id = bus_data.get("raw_trip_id")
                 existing_bus.lat = bus_data["lat"]
                 existing_bus.lon = bus_data["lon"]
@@ -67,9 +74,9 @@ async def update_buses():
             else:
                 new_bus = BusModel(
                     vehicle_id=vehicle_id,
-                    route_id=bus_data.get("route_id"),
-                    direction_id=bus_data.get("direction_id"),
-                    service_id=bus_data.get("service_id"),
+                    route_id=bus_data.get("route_id") or "",
+                    direction_id=direction_id if direction_id is not None else 0,
+                    service_id=service_id,
                     raw_trip_id=bus_data.get("raw_trip_id"),
                     lat=bus_data["lat"],
                     lon=bus_data["lon"],
