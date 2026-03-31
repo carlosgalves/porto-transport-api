@@ -91,8 +91,13 @@ class GTFSNormalizer:
                     raise ValueError(f"Invalid direction_id in trip_id: {trip_id_raw}") from exc
 
             trip_number = ""
+            # Prefer N* token (run instance) over T* token.
             for part in trip_id_raw.split("|"):
-                if part.startswith("T") and len(part) > 1:
+                if part.startswith("N") and len(part) > 1:
+                    trip_number = part[1:]
+                    break
+            for part in trip_id_raw.split("|"):
+                if not trip_number and part.startswith("T") and len(part) > 1:
                     trip_number = part[1:]
                     break
             if not trip_number:

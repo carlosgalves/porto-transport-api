@@ -322,7 +322,9 @@ class StopService:
                     trip_number = match["trip_number"]
                     stop_sequence = match["stop_sequence"]
 
-            trip_id = f"{route_id}_{direction_id}_{service_id}_{trip_number}"
+            # Keep the official realtime identifier as trip id to match FIWARE stcp:nr_viagem.
+            raw_trip_id = arrival_data.get("raw_trip_id")
+            trip_id = raw_trip_id or f"{route_id}_{direction_id}_{service_id}_{trip_number}"
             db_trip = db.query(TripModel).filter(TripModel.trip_id == trip_id).first()
             headsign = db_trip.headsign if db_trip else (arrival_data.get("trip_headsign") or "")
             trip_info = TripInfo(
@@ -332,7 +334,7 @@ class StopService:
                 service_id=service_id,
                 number=trip_number,
                 headsign=headsign,
-                raw_trip_id=arrival_data.get("raw_trip_id"),
+                raw_trip_id=raw_trip_id,
             )
             stop_info = StopInfo(
                 id=stop_id,
@@ -360,7 +362,6 @@ class StopService:
             realtime_dt = _date_for_time(arrival_time)
             scheduled_dt = _date_for_time(scheduled_arrival_time)
 
-            raw_trip_id = arrival_data.get("raw_trip_id")
             vehicle_id = (nr_viagem_to_vehicle.get(raw_trip_id) if raw_trip_id else None) or arrival_data["vehicle_id"]
 
             arrival_items.append(RealtimeArrival(
